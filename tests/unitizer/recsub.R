@@ -13,6 +13,13 @@ unitizer_sect("simple tests", {
   l <- list(b=quote(x < 1e4), d=quote(b))
 
   recsub(c, l)
+
+  ## Notice how the symbol search always starts with `l`,
+  ## i.e. after we find and expand `d`, we look for `b`
+  ## in `l` first, not in `enclos` where `b` is `x < 10`
+  ## This might change in the future based on #4
+
+  recsub(quote(d), l)
 })
 unitizer_sect("catch inf rec", {
   a1 <- quote(b1 > 3)

@@ -52,7 +52,7 @@ can rewrite a simplified version of `subset` as follows:
 
 ```{r}
 subset2 <- function(x, subset) {
-  sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
+  sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
 subset2(iris, my.exp)
@@ -60,14 +60,14 @@ subset2(iris, my.exp)
 
 While this may not seem like much of an improvement to the poor sod writing
 `subset2`, the user will benefit from the new feature.  Additionally, because
-`eval_r` substitutes language recursively the following is possible:
+`evalr` substitutes language recursively the following is possible:
 
 ```{r}
 my.exp.1 <- quote(Species == 'virginica')
 my.exp.2 <- quote(Sepal.Width > 3.6)
 subset2(iris, my.exp.1 & my.exp.2)
 
-my.exp.3 <- quote(sub.exp.1 & sub.exp.2)
-subset2(iris, sub.exp.3)
+my.exp.3 <- quote(my.exp.1 & my.exp.2)
+subset2(iris, my.exp.3)
 ```
 

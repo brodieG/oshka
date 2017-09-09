@@ -16,20 +16,21 @@
 #' b <- quote(x < 10)
 #' x <- 9:10
 #'
-#' eval_r(quote(x[a & b]))
+#' evalr(quote(x[a & b]))
 #'
 #' ## Add an interceding frame; here we want to ensure that the
 #' ## variable used is the one in the data.frame, not the one we
 #' ## just defined above.
+#' DF <- data.frame(x=5:7, y=letters[1:3], stringsAsFactors=FALSE)
 #' DF$x    # use this one
 #' x       # not this one
-#' eval_r(quote(DF[a & b, ,drop=FALSE]))            # incorrect
-#' eval_r(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
+#' evalr(quote(DF[a & b, ,drop=FALSE]))            # incorrect
+#' evalr(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
 #'
 #' ## Implement programmable NSE in a function; use `substitute` to capture
 #' ## input unevaluated
 #' subset2 <- function(x, subset) {
-#'   sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
+#'   sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
 #'   x[!is.na(sub.val) & sub.val, ]
 #' }
 #' subset2(DF, a & y < 'c')
@@ -37,7 +38,7 @@
 #' ## Use `recsub` to see the expanded expression:
 #' recsub(quote(a & y < 'c'), envir=DF)
 
-eval_r <- function(
+evalr <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv()
 ) {

@@ -5,7 +5,7 @@ unitizer_sect("basic eval", {
   b <- quote(x < 10)
   x <- 9:10
 
-  eval_r(quote(x[a & b]))
+  evalr(quote(x[a & b]))
 
   ## Add an interceding frame; here we want to ensure that the
   ## variable used is the one in the data.frame, not the one we
@@ -13,14 +13,14 @@ unitizer_sect("basic eval", {
   DF <- data.frame(x=5:7, y=letters[1:3], stringsAsFactors=FALSE)
   DF$x    # use this one
   x       # not this one
-  eval_r(quote(DF[a & b, ,drop=FALSE]))            # incorrect
-  eval_r(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
+  evalr(quote(DF[a & b, ,drop=FALSE]))            # incorrect
+  evalr(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
 })
 unitizer_sect("subset2", {
   ## Implement programmable NSE in a function; use `substitute` to capture
   ## input unevaluated
   subset2 <- function(x, subset) {
-    sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
+    sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
     x[!is.na(sub.val) & sub.val, ]
   }
   subset2(DF, a & y < 'c')

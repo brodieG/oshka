@@ -59,7 +59,7 @@ recsub_int <- function(lang, envir, symbols) {
 #' ## Notice how the symbol search always starts with `l`,
 #' ## i.e. after we find and expand `d`, we look for `b`
 #' ## in `l` first, not in `enclos` where `b` is `x < 10`
-#' recsub(d, l)
+#' recsub(quote(d), l)
 
 recsub <- function(
   expr, envir=parent.frame(),
