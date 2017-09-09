@@ -40,9 +40,8 @@ recsub <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv()
 ) {
-  x.sub <- substitute(expr)
-  if(!is.language(x.sub)) {
-    x.sub
+  if(!is.language(expr)) {
+    expr
   } else {
     # construct the evaluation chain depending on whether `envir` is an
     # environment or a list
@@ -62,11 +61,13 @@ recsub <- function(
             "Argument `envir` may not have \"\" as a name for any elements ",
             "when it is a list or a pairlist."
           )
-        list2env(env.list, parent=enclos())
+        list2env(env.list, parent=enclos)
       }
     } else envir
     # Do the substitution as needed
 
-    recsub_int(x.sub, env.proc, symbols=character())
+    recsub_int(expr, env.proc, symbols=character())
   }
 }
+#' Recursively Substitute Language and Evaluate
+#'

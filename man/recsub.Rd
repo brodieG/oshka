@@ -8,5 +8,11 @@ recsub(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
 \description{
-Blah blah
+Used to implement programmable Non-Standard Evaluation
+}
+\examples{
+a <- quote(x > 3)
+b <- quote(x < 10)
+c <- quote(a & b)
+recsub(c)
 }
