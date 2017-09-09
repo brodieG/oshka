@@ -1,14 +1,6 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-```{r, echo = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "##",
-  fig.path = "README-",
-  error = TRUE
-)
-library(recsub)
-```
+
 
 # recsub
 
@@ -23,8 +15,12 @@ Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
 without intervention.  `subset` is a canonical example:
 
-```{r}
+
+```r
 subset(iris, Sepal.Width > 4.1)
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
+## 16          5.7         4.4          1.5         0.4  setosa
+## 34          5.5         4.2          1.4         0.2  setosa
 ```
 
 The expression `Sepal.Width > 4.1` would normally produce
@@ -36,38 +32,56 @@ A limitation of standard NSE is that it is difficult to use programmatically.
 For example, if we wanted to store a `subset` expression in a variable it would
 not work:
 
-```{r}
+
+```r
 my.exp <- quote(Sepal.Width > 4.1)
 subset(iris, my.exp)
+## Error in subset.data.frame(iris, my.exp): 'subset' must be logical
 ```
 
 Instead, we would have to resort to the following contortion:
 
-```{r}
+
+```r
 eval(bquote(subset(iris, .(my.exp))))
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
+## 16          5.7         4.4          1.5         0.4  setosa
+## 34          5.5         4.2          1.4         0.2  setosa
 ```
 
 This package provide tools to write functions that support programmable NSE.  We
 can rewrite a simplified version of `subset` as follows:
 
-```{r}
+
+```r
 subset2 <- function(x, subset) {
   sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
 subset2(iris, my.exp)
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
+## 16          5.7         4.4          1.5         0.4  setosa
+## 34          5.5         4.2          1.4         0.2  setosa
 ```
 
 While this may not seem like much of an improvement to the poor sod writing
 `subset2`, the user will benefit from the new feature.  Additionally, because
 `eval_r` substitutes language recursively the following is possible:
 
-```{r}
+
+```r
 my.exp.1 <- quote(Species == 'virginica')
 my.exp.2 <- quote(Sepal.Width > 3.6)
 subset2(iris, my.exp.1 & my.exp.2)
+##     Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
+## 118          7.7         3.8          6.7         2.2 virginica
+## 132          7.9         3.8          6.4         2.0 virginica
 
 my.exp.3 <- quote(sub.exp.1 & sub.exp.2)
 subset2(iris, sub.exp.3)
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
+## 15          5.8         4.0          1.2         0.2  setosa
+## 16          5.7         4.4          1.5         0.4  setosa
+## 19          5.7         3.8          1.7         0.3  setosa
 ```
 
