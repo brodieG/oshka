@@ -1,8 +1,10 @@
 Package: recsub
-Title: Recursive Substitution and Evaluation
-Description: An implementation of programmable Non-Standard Evaluation that
-  works by recursively substituting symbols that point to language objects.
-Version: 0.0.0.9000
+Title: Programmable Non-Standard Evaluation
+Description: Tools to implement programmable Non-Standard Evaluation (NSE).
+  `recsub` works by recursively substituting symbols that point to language
+  objects.  The semantics are the same as they are for non-language R objects so
+  usage is intuitive.
+Version: 0.0.1
 Authors@R: c(
     person("Brodie", "Gaslam", email="brodie.gaslam@yahoo.com",
     role=c("aut", "cre"))
@@ -11,8 +13,8 @@ Depends:
     R (>= 3.2.2)
 License: GPL (>=2)
 LazyData: true
-URL: https://github.com/brodieG/subversive
-BugReports: https://github.com/brodieG/subversive/issues
+URL: https://github.com/brodieG/recsub
+BugReports: https://github.com/brodieG/recsub/issues
 VignetteBuilder: knitr
 Suggests:
     knitr,
