@@ -1,0 +1,35 @@
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "##",
+  fig.path = "README-",
+  error = TRUE
+)
+library(subversive)
+```
+
+# subversive
+
+[![](https://travis-ci.org/brodieG/subversive.svg?branch=master)](https://travis-ci.org/brodieG/subversive)
+[![](https://codecov.io/github/brodieG/subversive/coverage.svg?branch=master)](https://codecov.io/github/brodieG/subversive?branch=master)
+[![](http://www.r-pkg.org/badges/version/subversive)](https://cran.r-project.org/package=subversive)
+[![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
+
+## Programmable Non-Standard Evaluation
+
+## An Example
+
+```{r}
+subset2 <- function(x, subset) {
+  stopifnot(is.data.frame(x))
+  sub.lang <- recsub(substitute(subset), envir=x, enclos=parent.frame())
+  sub.vals <- eval(sub.lang, envir=x, enclos=parent.frame())
+  x[sub.vals, ]
+}
+sub.exp.1 <- quote(Species == 'Setosa')
+sub.exp.2 <- quote(Sepal.Length > 5)
+
+subset2(iris, sub.exp.1 & sub.exp.2)
+```
