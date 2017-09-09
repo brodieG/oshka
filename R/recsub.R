@@ -27,14 +27,39 @@ recsub_int <- function(lang, envir, symbols) {
 }
 #' Recursively Substitute Language
 #'
-#' Used to implement programmable Non-Standard Evaluation
+#' Takes R language objects and recursively substitutes symbols therein that
+#' point to other symbols with the other symbols.  Substitution stops when
+#' either a symbol does not point to anything, or points to something that is
+#' not a language object (i.e. symbol, quoted language, or expression object).
+#'
+#' Symbols are looked up first in `envir` and then through the parent
+#' environments chain.  Each symbol lookup is always done from `envir`, even if
+#' we are in the middle of a recursive symbol substitution and the previously
+#' expanded symbol is several steps down the search path (this is likely to
+#' change).
+#'
+#' Symbols at the first position in function calls are not substituted (i.e. in
+#' `fun(x, y)` the `fun` is not eligible for substitution).
 #'
 #' @export
+#' @seealso [eval_r]
+#' @inheritParams eval_r
+#' @return If the input is a language object, that object with all symbols
+#'   recursively substituted, otherwise the input unchanged.
 #' @examples
 #' a <- quote(x > 3)
 #' b <- quote(x < 10)
 #' c <- quote(a & b)
 #' recsub(c)
+#'
+#' ## You can place list like objects in the search path
+#' l <- list(b=quote(x < 1e4), d=quote(b))
+#' recsub(c, l)
+#'
+#' ## Notice how the symbol search always starts with `l`,
+#' ## i.e. after we find and expand `d`, we look for `b`
+#' ## in `l` first, not in `enclos` where `b` is `x < 10`
+#' recsub(d, l)
 
 recsub <- function(
   expr, envir=parent.frame(),

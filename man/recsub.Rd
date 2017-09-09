@@ -7,12 +7,52 @@
 recsub(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
+\arguments{
+\item{expr}{an object to be evaluated, typically a quoted language object as
+returned by \code{quote} or \code{substitute}.  \code{expr} will be recursively
+substituted by \code{recsub}.}
+
+\item{envir}{the \code{\link{environment}} in which \code{expr} is to
+    be evaluated.  May also be \code{NULL}, a list, a data frame,
+    a pairlist or an integer as specified to \code{\link{sys.call}}.}
+
+\item{enclos}{Relevant when \code{envir} is a (pair)list or a data frame.
+    Specifies the enclosure, i.e., where \R looks for objects not found
+    in \code{envir}.  This can be \code{NULL} (interpreted as the base
+    package environment, \code{\link{baseenv}()}) or an environment.}
+}
+\value{
+if the input is a language object, that object with all symbols
+recursively substituted, otherwise the input unchanged.
+}
 \description{
-Used to implement programmable Non-Standard Evaluation
+Takes R language objects and recursively substitutes symbols therein that
+point to other symbols with the other symbols.  Substitution stops when
+either a symbol does not point to anything, or points to something that is
+not a language object (i.e. symbol, quoted language, or expression object).
+}
+\details{
+Symbols are looked up first in \code{envir} and then through the parent
+environments chain.  Each symbol lookup is always done from \code{envir}, even if
+we are in the middle of a recursive symbol substitution and the previously
+expanded symbol is several steps down the search path (this is likely to
+change).
 }
 \examples{
 a <- quote(x > 3)
 b <- quote(x < 10)
 c <- quote(a & b)
 recsub(c)
+
+## You can place list like objects in the search path
+l <- list(b=quote(x < 1e4), d=quote(b))
+recsub(c, l)
+
+## Notice how the symbol search always starts with `l`,
+## i.e. after we find and expand `d`, we look for `b`
+## in `l` first, not in `enclos` where `b` is `x < 10`
+recsub(d, l)
+}
+\seealso{
+\link{eval_r}
 }

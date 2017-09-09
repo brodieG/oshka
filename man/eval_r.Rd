@@ -8,12 +8,53 @@ eval_r(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
 \arguments{
-\item{expr}{an object to be evaluated, see \link{eval}.}
+\item{expr}{an object to be evaluated, typically a quoted language object as
+returned by \code{quote} or \code{substitute}.  \code{expr} will be recursively
+substituted by \code{recsub}.}
+
+\item{envir}{the \code{\link{environment}} in which \code{expr} is to
+    be evaluated.  May also be \code{NULL}, a list, a data frame,
+    a pairlist or an integer as specified to \code{\link{sys.call}}.}
+
+\item{enclos}{Relevant when \code{envir} is a (pair)list or a data frame.
+    Specifies the enclosure, i.e., where \R looks for objects not found
+    in \code{envir}.  This can be \code{NULL} (interpreted as the base
+    package environment, \code{\link{baseenv}()}) or an environment.}
 }
 \value{
 The result of evaluating the object: for an expression vector this is
 the result of evaluating the last element.
 }
 \description{
-Calls \link{recsub} on with the inputs, and then evaluates the result.
+Calls \link{recsub} on the inputs, and then evaluates the result with \link{eval}.
+This allows us to implement programmable NSE in functions.
+}
+\examples{
+a <- quote(x > 5)
+b <- quote(x < 10)
+x <- 9:10
+
+eval_r(quote(x[a & b]))
+
+## Add an interceding frame; here we want to ensure that the
+## variable used is the one in the data.frame, not the one we
+## just defined above.
+DF$x    # use this one
+x       # not this one
+eval_r(quote(DF[a & b, ,drop=FALSE]))            # incorrect
+eval_r(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
+
+## Implement programmable NSE in a function; use `substitute` to capture
+## input unevaluated
+subset2 <- function(x, subset) {
+  sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
+  x[!is.na(sub.val) & sub.val, ]
+}
+subset2(DF, a & y < 'c')
+
+## Use `recsub` to see the expanded expression:
+recsub(quote(a & y < 'c'), envir=DF)
+}
+\seealso{
+\link{eval}, \link{recsub}, \code{vignette('recsub', 'recsub')}
 }
