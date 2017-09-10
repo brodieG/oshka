@@ -25,6 +25,10 @@ unitizer_sect("simple tests", {
   env1 <- list2env(list(e=quote(b)))
   recsub(quote(e), l, enclos=env1)
 })
+unitizer_sect("expressions", {
+  sub.exp <- as.expression(l)
+  recsub(expression(c, a && l, sub.exp))
+})
 unitizer_sect("catch inf rec", {
   a1 <- quote(b1 > 3)
   b1 <- quote(b1 < 10)
@@ -40,4 +44,15 @@ unitizer_sect("catch inf rec", {
   b2 <- quote(a2 < 10)
 
   recsub(quote(c2), l2)
+})
+unitizer_sect("integer envir", {
+  a2 <- quote(x + 1)
+  local({
+    a2 <- quote(y > z);
+    recsub(quote(a2), -2)
+  })
+  local({
+    a2 <- quote(y > z)
+    recsub(quote(a2), -1)
+  })
 })
