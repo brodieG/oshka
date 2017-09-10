@@ -107,41 +107,7 @@ recsub <- function(
   if(!is.language(expr)) {
     expr
   } else {
-    # construct the evaluation chain depending on whether `envir` is an
-    # environment or a list
-
-    if(!is.environment(enclos))
-      stop("Argument `enclos` must be an environment.")
-
-    env.proc <- if(!is.environment(envir)) {
-      if(!is.list(envir) && !is.pairlist(envir) && !is.numeric(envir)) {
-        stop(
-          "Argument `envir` must be `environment`, `list`, `pairlist`, ",
-          "or `numeric`"
-        )
-      } else {
-        # In theory this should not copy any of the contents of the list or pair
-        # lists so should be a cheap operation
-
-        if(is.numeric(envir)) {
-          env.try <- try(sys.frame(envir))
-          if(inherits(env.try, "try-error"))
-            stop(
-              "Unable to resolve frame with integer `envir`, see prior error."
-            )
-          env.try
-        } else {
-          env.list <- if(is.pairlist(envir)) as.list(envir) else envir
-          if(!all(names(nzchar(env.list))))
-            stop(
-              "Argument `envir` may not have \"\" as a name for any elements ",
-              "when it is a list or a pairlist."
-            )
-          list2env(env.list, parent=enclos)
-      } }
-    } else envir
-    # Do the substitution as needed
-
-    recsub_int(expr, env.proc, symbols=character())
+    envir.proc <- env_resolve(envir, enclos, internal=TRUE)
+    recsub_int(expr, envir=envir, symbols=character())
   }
 }

@@ -45,14 +45,3 @@ unitizer_sect("catch inf rec", {
 
   recsub(quote(c2), l2)
 })
-unitizer_sect("integer envir", {
-  a2 <- quote(x + 1)
-  local({
-    a2 <- quote(y > z);
-    recsub(quote(a2), -2)
-  })
-  local({
-    a2 <- quote(y > z)
-    recsub(quote(a2), -1)
-  })
-})
