@@ -77,8 +77,8 @@ gets <- function(symb.chr, envir) {
 #' `fun(x, y)` the `fun` is not eligible for substitution).
 #'
 #' @export
-#' @seealso [eval_r]
-#' @inheritParams eval_r
+#' @seealso [evalr]
+#' @inheritParams evalr
 #' @return If the input is a language object, that object with all symbols
 #'   recursively substituted, otherwise the input unchanged.
 #' @examples
@@ -133,5 +133,3 @@ recsub <- function(
     recsub_int(expr, env.proc, symbols=character())
   }
 }
-#' Recursively Substitute Language and Evaluate
-#'
