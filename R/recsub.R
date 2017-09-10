@@ -2,64 +2,103 @@
 ##
 ## @symbols character vector of symbols encountered so far
 
-recsub_int <- function(lang, envir, symbols) {
+recsub_int <- function(lang, envir, symbols=NULL) {
   if(is.symbol(lang)) {
     symb.as.chr <- as.character(lang)
+    if(nzchar(symb.as.chr)) {
+      if(symb.as.chr %in% symbols)
+        stop(
+          "Potential infinite recursion detected substituting symbol `",
+          symb.as.chr, "`"
+        )
 
-    if(symb.as.chr %in% symbols)
-      stop(
-        "Potential infinite recursion detected substituting symbol `",
-        symb.as.chr, "`"
-      )
+      lang.sub <- gets(symb.as.chr, envir=envir)
 
-    lang.sub <- tryCatch(get(symb.as.chr, envir=envir), error=function(e) NULL)
-
-    if(is.language(lang.sub))
-      recsub_int(lang.sub, envir, symbols=c(symbols, symb.as.chr))
-    else lang
+      if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
+        # track all symbols detected at this env level so we can detect an
+        # infinite recursion
+        symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
+        recsub_int(lang.sub$obj, envir=lang.sub$envir, symbols=symbols)
+      }
+      else lang
+    } else lang
   } else if (is.language(lang)) {
-    if(length(lang > 1L)) {
-      for(i in tail(seq_along(lang), -1L))
-        lang[[i]] <- recsub_int(lang[[i]], envir=envir, symbols=symbols)
-    }
+    lang.el.seq <- seq_along(lang)
+    # Skip function symbol if in call
+    loop.over <- if(is.expression(lang)) lang.el.seq else tail(lang.el.seq, -1L)
+    for(i in loop.over)
+      lang[[i]] <- recsub_int(lang[[i]], envir=envir, symbols=symbols)
     lang
   } else lang
 }
-#' Recursively Substitute Language
+## Find a symbol binding in environments
+##
+## Like `get`, except that it returns the symbol value and the environment it
+## was found in.
+##
+## @param symb.chr a character(1L) representation of symbol name
+## @return a list with the object and environment it was found in if there was
+##   one, NULL otherwise
+
+gets <- function(symb.chr, envir) {
+  if(!identical(envir, emptyenv())) {
+    # checking for NULL alone is not sufficient
+    if(exists(symb.chr, envir=envir, inherit=FALSE)) {
+      list(obj=envir[[symb.chr]], envir=envir)
+    } else {
+      gets(symb.chr, envir=parent.env(envir))
+    }
+  }
+}
+#' Recursively Substitute Symbols in Quoted Language
 #'
-#' Takes R language objects and recursively substitutes symbols therein that
-#' point to other symbols with the other symbols.  Substitution stops when
-#' either a symbol does not point to anything, or points to something that is
-#' not a language object (i.e. symbol, quoted language, or expression object).
+#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) %in%
+#' c("expression", "language", "symbol")`) that point to quoted language objects
+#' until the resulting language object only contains symbols that point to
+#' non-language objects.  The examples are easier to understand than the prior
+#' sentence, so you are encouraged to look at those.
 #'
-#' Symbols are looked up first in `envir` and then through the parent
-#' environments chain.  Each symbol lookup is always done from `envir`, even if
-#' we are in the middle of a recursive symbol substitution and the previously
-#' expanded symbol is several steps down the search path (this is likely to
-#' change).
+#' The expansion of quoted language via recursive substitution allows the
+#' implementation of programmable Non-Standard Evaluation (NSE hereafter).
+#' Users can create complex quoted language expressions from simple ones by
+#' combining them as they would tokens in standard R expressions.  Then, a
+#' programmable NSE aware function can use `recsub` or [evalr] to expand the
+#' quoted language into usable form.
+#'
+#' During the recursive substitution, symbols are looked up through the search
+#' path in the same way as standard R evaluation looks up symbols.  One subtlety
+#' is that if symbol A expands to a language object B, the symbols in
+#' language object B are looked for starting from the environment that A is
+#' bound to, not the topmost environment.  This is because presumably the
+#' process that resulted in language object B cannot be aware of what the child
+#' environments of A and B's environment will be at runtime.
 #'
 #' Symbols at the first position in function calls are not substituted (i.e. in
 #' `fun(x, y)` the `fun` is not eligible for substitution).
 #'
 #' @export
-#' @seealso [eval_r]
-#' @inheritParams eval_r
+#' @seealso [evalr]
+#' @inheritParams evalr
 #' @return If the input is a language object, that object with all symbols
 #'   recursively substituted, otherwise the input unchanged.
 #' @examples
-#' a <- quote(x > 3)
-#' b <- quote(x < 10)
-#' c <- quote(a & b)
-#' recsub(c)
+#' xzw <- uvt <- NULL  # make sure not lang objects
+#' aaa <- quote(xzw > 3)
+#' bbb <- quote(xzw < 10)
+#' ccc <- quote(aaa & bbb)
+#' recsub(ccc)
 #'
 #' ## You can place list like objects in the search path
-#' l <- list(b=quote(x < 1e4), d=quote(b))
-#' recsub(c, l)
+#' l <- list(bbb=quote(uvt < 9999))
+#' recsub(ccc, l)
 #'
-#' ## Notice how the symbol search always starts with `l`,
-#' ## i.e. after we find and expand `d`, we look for `b`
-#' ## in `l` first, not in `enclos` where `b` is `x < 10`
-#' recsub(quote(d), l)
+#' ## But notice what happens if we use `quote(c)` instead of
+#' ## just `c`.  This is because in this case `recsub` must
+#' ## look for the `c` symbol in the search path, and once
+#' ## it finds it it looks for `a` and `b` starting from the
+#' ## environment `c` is bound to.
+#'
+#' recsub(quote(ccc), l)
 
 recsub <- function(
   expr, envir=parent.frame(),
@@ -94,5 +133,3 @@ recsub <- function(
     recsub_int(expr, env.proc, symbols=character())
   }
 }
-#' Recursively Substitute Language and Evaluate
-#'

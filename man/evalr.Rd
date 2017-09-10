@@ -30,20 +30,20 @@ Calls \link{recsub} on the inputs, and then evaluates the result with \link{eval
 This allows us to implement programmable NSE in functions.
 }
 \examples{
-a <- quote(x > 5)
-b <- quote(x < 10)
-x <- 9:10
+xzw <- 8:10
+aaa <- quote(xzw > 5)
+bbb <- quote(xzw < 10)
 
-evalr(quote(x[a & b]))
+evalr(quote(xzw[aaa & bbb]))
 
 ## Add an interceding frame; here we want to ensure that the
 ## variable used is the one in the data.frame, not the one we
 ## just defined above.
-DF <- data.frame(x=5:7, y=letters[1:3], stringsAsFactors=FALSE)
-DF$x    # use this one
-x       # not this one
-evalr(quote(DF[a & b, ,drop=FALSE]))            # incorrect
-evalr(quote(DF[a & b, ,drop=FALSE]), envir=DF)  # correct
+DF <- data.frame(xzw=5:7, yac=letters[1:3], stringsAsFactors=FALSE)
+DF$xzw    # use this one
+xzw       # not this one
+evalr(quote(DF[aaa & bbb, ,drop=FALSE]))            # incorrect
+evalr(quote(DF[aaa & bbb, ,drop=FALSE]), envir=DF)  # correct
 
 ## Implement programmable NSE in a function; use `substitute` to capture
 ## input unevaluated
@@ -51,10 +51,10 @@ subset2 <- function(x, subset) {
   sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
-subset2(DF, a & y < 'c')
+subset2(DF, aaa & yac < 'c')
 
 ## Use `recsub` to see the expanded expression:
-recsub(quote(a & y < 'c'), envir=DF)
+recsub(quote(aaa & yac < 'c'), envir=DF)
 }
 \seealso{
 \link{eval}, \link{recsub}, \code{vignette('recsub', 'recsub')}
