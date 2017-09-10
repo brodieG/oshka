@@ -13,14 +13,13 @@ recsub_int <- function(lang, envir, symbols=NULL) {
         )
 
       lang.sub <- gets(symb.as.chr, envir=envir)
-      symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
 
-      # NOTE: need to think about the exact structure of symbols, the main thing
-      # we need to worry about is if a symbol resolves to itself within a single
-      # environment.
-
-      if(!is.null(lang.sub) && is.language(lang.sub$obj))
+      if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
+        # track all symbols detected at this env level so we can detect an
+        # infinite recursion
+        symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
         recsub_int(lang.sub$obj, envir=lang.sub$envir, symbols=symbols)
+      }
       else lang
     } else lang
   } else if (is.language(lang)) {
@@ -37,6 +36,8 @@ recsub_int <- function(lang, envir, symbols=NULL) {
 ## was found in.
 ##
 ## @param symb.chr a character(1L) representation of symbol name
+## @return a list with the object and environment it was found in if there was
+##   one, NULL otherwise
 
 gets <- function(symb.chr, envir) {
   if(!identical(envir, emptyenv())) {
