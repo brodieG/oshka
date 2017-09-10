@@ -2,21 +2,27 @@
 ##
 ## @symbols character vector of symbols encountered so far
 
-recsub_int <- function(lang, envir, symbols) {
+recsub_int <- function(lang, envir, symbols=NULL) {
   if(is.symbol(lang)) {
     symb.as.chr <- as.character(lang)
+    if(nzchar(symb.as.chr)) {
+      if(symb.as.chr %in% symbols)
+        stop(
+          "Potential infinite recursion detected substituting symbol `",
+          symb.as.chr, "`"
+        )
 
-    if(symb.as.chr %in% symbols)
-      stop(
-        "Potential infinite recursion detected substituting symbol `",
-        symb.as.chr, "`"
-      )
+      lang.sub <- gets(symb.as.chr, envir=envir)
+      symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
 
-    lang.sub <- tryCatch(get(symb.as.chr, envir=envir), error=function(e) NULL)
+      # NOTE: need to think about the exact structure of symbols, the main thing
+      # we need to worry about is if a symbol resolves to itself within a single
+      # environment.
 
-    if(is.language(lang.sub))
-      recsub_int(lang.sub, envir, symbols=c(symbols, symb.as.chr))
-    else lang
+      if(!is.null(lang.sub) && is.language(lang.sub$obj))
+        recsub_int(lang.sub$obj, envir=lang.sub$envir, symbols=symbols)
+      else lang
+    } else lang
   } else if (is.language(lang)) {
     if(length(lang > 1L)) {
       for(i in tail(seq_along(lang), -1L))
@@ -24,6 +30,23 @@ recsub_int <- function(lang, envir, symbols) {
     }
     lang
   } else lang
+}
+## Find a symbol binding in environments
+##
+## Like `get`, except that it returns the symbol value and the environment it
+## was found in.
+##
+## @param symb.chr a character(1L) representation of symbol name
+
+gets <- function(symb.chr, envir) {
+  if(!identical(envir, emptyenv())) {
+    # checking for NULL alone is not sufficient
+    if(exists(symb.chr, envir=envir, inherit=FALSE)) {
+      list(obj=envir[[symb.chr]], envir=envir)
+    } else {
+      gets(symb.chr, envir=parent.env(envir))
+    }
+  }
 }
 #' Recursively Substitute Language
 #'
