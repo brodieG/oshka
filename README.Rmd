@@ -10,14 +10,14 @@ knitr::opts_chunk$set(
 library(recsub)
 ```
 
-# recsub
+# recsub - Programmable Non-Standard Evaluation
 
 [![](https://travis-ci.org/brodieG/recsub.svg?branch=master)](https://travis-ci.org/brodieG/recsub)
 [![](https://codecov.io/github/brodieG/recsub/coverage.svg?branch=master)](https://codecov.io/github/brodieG/recsub?branch=master)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-## Programmable Non-Standard Evaluation
+## Overview
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -27,14 +27,10 @@ without intervention.  `subset` is a canonical example:
 subset(iris, Sepal.Width > 4.1)
 ```
 
-The expression `Sepal.Width > 4.1` would normally produce
-an error because neither `Species` nor `Sepal.Width` exist in the global
-environment.  `subset` captures the expression and evaluates it within `iris`
-instead of directly in the global environment so we get a meaningful result.
+`Sepal.Width` does not exist in the global environment, yet this works because
+`subset` captures the expression and evaluates it within `iris`.
 
-A limitation of standard NSE is that it is difficult to use programmatically.
-For example, if we wanted to store a `subset` expression in a variable it would
-not work:
+A limitation of NSE is that it is difficult to use programmatically:
 
 ```{r}
 my.exp <- quote(Sepal.Width > 4.1)
@@ -47,27 +43,73 @@ Instead, we would have to resort to the following contortion:
 eval(bquote(subset(iris, .(my.exp))))
 ```
 
-This package provide tools to write functions that support programmable NSE.  We
-can rewrite a simplified version of `subset` as follows:
+`recsub` provides tools to write functions that support programmable NSE, such
+as this simplified version of `subset`:
 
 ```{r}
 subset2 <- function(x, subset) {
-  sub.val <- eval_r(substitute(subset), envir=x, enclos=parent.frame())
+  sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
 subset2(iris, my.exp)
 ```
 
 While this may not seem like much of an improvement to the poor sod writing
-`subset2`, the user will benefit from the new feature.  Additionally, because
-`eval_r` substitutes language recursively the following is possible:
+`subset2`, it does make it easy to program with.  Additionally, because `evalr`
+substitutes language recursively, the following is possible:
 
 ```{r}
 my.exp.1 <- quote(Species == 'virginica')
 my.exp.2 <- quote(Sepal.Width > 3.6)
-subset2(iris, my.exp.1 & my.exp.2)
+my.exp.3 <- quote(my.exp.1 & my.exp.2)
 
-my.exp.3 <- quote(sub.exp.1 & sub.exp.2)
-subset2(iris, sub.exp.3)
+subset2(iris, my.exp.3)
 ```
+
+`recsub` sacrifices power for simplicity.  For example, the developer must
+manage the evaluation environment, but in exchange they get semantics that are
+identical to those of `eval`.  Users of functions that implement programmable
+NSE with `recsub` must learn to use `quote` and nothing else, and then only if
+they want to program with NSE.  The semantics of recursive substitution follow
+those of standard evaluation of non-language R objects.
+
+## Development Status
+
+This package is proof-of-concept.  Whether it leaves that state will depend on
+how much interest it elicits.
+
+Currently this package is only available on github:
+
+```{r eval=FALSE}
+devtools::install_github('brodieg/recsub')
+```
+
+## Related Packages
+
+[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
+Wickham implements a more comprehensive, but far more complicated version of
+programmable NSE.
+
+## Acknowledgements
+
+* R Core for developing and maintaining such a wonderful language.
+* CRAN maintainers, for patiently shepherding packages onto CRAN and maintaining
+  the repository, and Uwe Ligges in particular for maintaining
+  [Winbuilder](http://win-builder.r-project.org/).
+* [Jim Hester](https://github.com/jimhester) because
+  [covr](https://cran.r-project.org/package=covr) rocks.
+* [Dirk Eddelbuettel](https://github.com/eddelbuettel) and [Carl
+  Boettiger](https://github.com/cboettig) for the
+  [rocker](https://github.com/rocker-org/rocker) project, and [Gábor
+  Csárdi](https://github.com/gaborcsardi) and the
+  [R-consortium](https://www.r-consortium.org/) for
+  [Rhub](https://github.com/r-hub), without which testing bugs on R-devel and
+  other platforms would be a nightmare.
+* Hadley Wickham for [devtools](https://cran.r-project.org/package=devtools) and
+  [roxygen2](https://cran.r-project.org/package=roxygen2).
+* [Yihui Xie](https://github.com/yihui) for
+  [knitr](https://cran.r-project.org/package=knitr) and  [J.J.
+  Allaire](https://github.com/jjallaire) etal for
+  [rmarkdown](https://cran.r-project.org/package=rmarkdown), and by extension
+  John MacFarlane for [pandoc](http://pandoc.org/).
 

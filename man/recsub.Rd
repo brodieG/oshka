@@ -7,12 +7,41 @@
 recsub(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
+\value{
+If the input is a language object, that object with all symbols
+recursively substituted, otherwise the input unchanged.
+}
 \description{
-Used to implement programmable Non-Standard Evaluation
+Takes R language objects and recursively substitutes symbols therein that
+point to other symbols with the other symbols.  Substitution stops when
+either a symbol does not point to anything, or points to something that is
+not a language object (i.e. symbol, quoted language, or expression object).
+}
+\details{
+Symbols are looked up first in \code{envir} and then through the parent
+environments chain.  Each symbol lookup is always done from \code{envir}, even if
+we are in the middle of a recursive symbol substitution and the previously
+expanded symbol is several steps down the search path (this is likely to
+change).
+
+Symbols at the first position in function calls are not substituted (i.e. in
+\code{fun(x, y)} the \code{fun} is not eligible for substitution).
 }
 \examples{
 a <- quote(x > 3)
 b <- quote(x < 10)
 c <- quote(a & b)
 recsub(c)
+
+## You can place list like objects in the search path
+l <- list(b=quote(x < 1e4), d=quote(b))
+recsub(c, l)
+
+## Notice how the symbol search always starts with `l`,
+## i.e. after we find and expand `d`, we look for `b`
+## in `l` first, not in `enclos` where `b` is `x < 10`
+recsub(quote(d), l)
+}
+\seealso{
+\link{eval_r}
 }
