@@ -2,6 +2,8 @@
 ##
 ## @symbols character vector of symbols encountered so far
 
+#' @importFrom utils tail
+
 recsub_int <- function(lang, envir, symbols=NULL) {
   if(is.symbol(lang)) {
     symb.as.chr <- as.character(lang)
@@ -43,7 +45,13 @@ recsub_int <- function(lang, envir, symbols=NULL) {
 gets <- function(symb.chr, envir) {
   if(!identical(envir, emptyenv())) {
     # checking for NULL alone is not sufficient
-    if(exists(symb.chr, envir=envir, inherit=FALSE)) {
+    ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
+    if(inherits(ex.try, "try-error")) {
+      # nocov start
+      stop("Internal error: exists failed, envir type: ", typeof(envir))
+      # nocov end
+    }
+    if(ex.try) {
       list(obj=envir[[symb.chr]], envir=envir)
     } else {
       gets(symb.chr, envir=parent.env(envir))
@@ -107,29 +115,7 @@ recsub <- function(
   if(!is.language(expr)) {
     expr
   } else {
-    # construct the evaluation chain depending on whether `envir` is an
-    # environment or a list
-
-    if(!is.environment(enclos))
-      stop("Argument `enclos` must be an environment.")
-
-    env.proc <- if(!is.environment(envir)) {
-      if(!is.list(envir) && !is.pairlist(envir)) {
-        stop("Argument `envir` must be `environment`, `list`, or `pairlist`")
-      } else {
-        # In theory this should not copy any of the contents of the list or pair
-        # lists so should be a cheap operation
-        env.list <- if(is.pairlist(envir)) as.list(envir) else envir
-        if(!all(names(nzchar(env.list))))
-          stop(
-            "Argument `envir` may not have \"\" as a name for any elements ",
-            "when it is a list or a pairlist."
-          )
-        list2env(env.list, parent=enclos)
-      }
-    } else envir
-    # Do the substitution as needed
-
-    recsub_int(expr, env.proc, symbols=character())
+    envir.proc <- env_resolve(envir, enclos, internal=TRUE)
+    recsub_int(expr, envir=envir.proc, symbols=character())
   }
 }

@@ -42,5 +42,6 @@ evalr <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv()
 ) {
-  eval(recsub(expr, envir, enclos), envir, enclos)
+  envir.proc <- env_resolve(envir, enclos, internal=TRUE)
+  eval(recsub(expr, envir=envir.proc), envir=envir.proc)
 }
