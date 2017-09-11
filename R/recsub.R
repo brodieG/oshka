@@ -2,6 +2,8 @@
 ##
 ## @symbols character vector of symbols encountered so far
 
+#' @importFrom utils tail
+
 recsub_int <- function(lang, envir, symbols=NULL) {
   if(is.symbol(lang)) {
     symb.as.chr <- as.character(lang)
@@ -43,7 +45,13 @@ recsub_int <- function(lang, envir, symbols=NULL) {
 gets <- function(symb.chr, envir) {
   if(!identical(envir, emptyenv())) {
     # checking for NULL alone is not sufficient
-    if(exists(symb.chr, envir=envir, inherit=FALSE)) {
+    ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
+    if(inherits(ex.try, "try-error")) {
+      # nocov start
+      stop("Internal error: exists failed, envir type: ", typeof(envir))
+      # nocov end
+    }
+    if(ex.try) {
       list(obj=envir[[symb.chr]], envir=envir)
     } else {
       gets(symb.chr, envir=parent.env(envir))
@@ -108,6 +116,6 @@ recsub <- function(
     expr
   } else {
     envir.proc <- env_resolve(envir, enclos, internal=TRUE)
-    recsub_int(expr, envir=envir, symbols=character())
+    recsub_int(expr, envir=envir.proc, symbols=character())
   }
 }
