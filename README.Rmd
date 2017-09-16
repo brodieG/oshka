@@ -33,14 +33,8 @@ subset(iris, Sepal.Width > 4.1)
 A limitation of NSE is that it is difficult to use programmatically:
 
 ```{r}
-my.exp <- quote(Sepal.Width > 4.1)
+my.exp.0 <- quote(Sepal.Width > 4.1)
 subset(iris, my.exp)
-```
-
-Instead, we would have to resort to the following contortion:
-
-```{r}
-eval(bquote(subset(iris, .(my.exp))))
 ```
 
 `recsub` provides tools to write functions that support programmable NSE, such
@@ -48,15 +42,14 @@ as this simplified version of `subset`:
 
 ```{r}
 subset2 <- function(x, subset) {
-  sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
-subset2(iris, my.exp)
+subset2(iris, my.exp.0)
 ```
 
-While this may not seem like much of an improvement to the poor sod writing
-`subset2`, it does make it easy to program with.  Additionally, because `evalr`
-substitutes language recursively, the following is possible:
+We recursively substitute R language objects, so you combine expressions:
 
 ```{r}
 my.exp.1 <- quote(Species == 'virginica')
@@ -66,17 +59,14 @@ my.exp.3 <- quote(my.exp.1 & my.exp.2)
 subset2(iris, my.exp.3)
 ```
 
-`recsub` sacrifices power for simplicity.  For example, the developer must
-manage the evaluation environment, but in exchange they get semantics that are
-identical to those of `eval`.  Users of functions that implement programmable
-NSE with `recsub` must learn to use `quote` and nothing else, and then only if
-they want to program with NSE.  The semantics of recursive substitution follow
-those of standard evaluation of non-language R objects.
+`recsub` abides by R semantics as much as possible so it should be intuitive to
+anyone familiar with `eval` and `quote`.  Additionally, any NSE function that
+you implement using `recsub` only requires that users know `quote`, and only
+then if they intend to use the programmable NSE feature.
 
 ## Development Status
 
-This package is proof-of-concept.  Whether it leaves that state will depend on
-how much interest it elicits.
+This package is proof-of-concept.  Feedback is welcome.
 
 Currently this package is only available on github:
 
