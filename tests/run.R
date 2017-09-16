@@ -1,2 +1,2 @@
 library(unitizer)
-unitize_dir()
+unitize_dir('unitizer', state='recommended')
