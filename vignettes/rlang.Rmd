@@ -1,0 +1,90 @@
+---
+title: "Comparison of Programmable NSE Frameworks"
+author: "Brodie Gaslam"
+output:
+    rmarkdown::html_vignette:
+        toc: true
+        css: styles.css
+
+vignette: >
+  %\VignetteIndexEntry{vetr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(dplyr)
+library(recsub)
+```
+
+## Overview
+
+We want to re-implement `summarize_by` function introduced in the [userR 2017
+Tidy Eval][1] session:
+
+```{r}
+summarise_by <- function(df, group, var) {
+  group <- enquo(group)
+  var <- enquo(var)
+  df %>%
+    group_by(!! group) %>%
+    summarise(avg = mean(!! var))
+}
+summarise_by(starwars, species, height) %>% head(2)
+```
+
+With `recsub` we would use:
+
+```{r}
+summarise_by_r <- function(df, group, var) {
+  group <- substitute(group)
+  var <- substitute(var)
+  expr <- recsub(
+    bquote(
+      .(df) %>%
+      group_by(.(group)) %>%
+      summarise(avg = mean(.(var)))
+    ),
+    df, parent.frame()
+  )
+  eval(expr, parent.frame())
+}
+summarise_by_r(starwars, species, height) %>% head(2)
+```
+
+While this looks a lot more complicated, keep in mind we just added programmable
+NSE to something that has no idea `recsub` even exists.  `dplyr` implements its
+own NSE with internal logic to handle the quo/dequo business.
+
+With one advantage that we can do things like:
+
+```{r}
+my.var <- quote(species)
+summarise_by_r(starwars, my.var, height) %>% head(2)
+```
+
+This would be even simpler if `group_by` and `summarise` had been built with
+`recsub` to begin with:
+
+```{r}
+group_by_r <- function(.data, ..., add=FALSE) {
+  group.call <- recsub(sys.call(), .data, parent.frame())
+  group.call[[1]] <- quote(group_by)
+  eval(group.call, parent.frame())
+}
+summarise_r <- function(.data, ..., add=FALSE) {
+  summarise.call <- recsub(sys.call(), .data, parent.frame())
+  summarise.call[[1]] <- quote(summarise)
+  eval(summarise.call, parent.frame())
+}
+summarise_by_r2 <- function(df, group, var)
+  df %>% group_by_r(group) %>% summarise_r(avg=mean(var))
+
+summarise_by_r2(starwars, species, height)
+```
+
+## References
+
+[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
+[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf

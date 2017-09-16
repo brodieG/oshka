@@ -20,6 +20,8 @@ Suggests:
     knitr,
     rmarkdown,
     unitizer,
-    covr
+    covr,
+    dplyr,
+    rlang
 RoxygenNote: 6.0.1.9000
 Roxygen: list(markdown = TRUE)

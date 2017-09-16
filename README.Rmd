@@ -62,7 +62,9 @@ subset2(iris, my.exp.3)
 `recsub` abides by R semantics as much as possible so it should be intuitive to
 anyone familiar with `eval` and `quote`.  Additionally, any NSE function that
 you implement using `recsub` only requires that users know `quote`, and only
-then if they intend to use the programmable NSE feature.
+then if they intend to use the programmable NSE feature.  One limitation of
+`recsub` is that as with `eval` you are responsible for ensuring the evaluation
+context is correct.
 
 ## Development Status
 
