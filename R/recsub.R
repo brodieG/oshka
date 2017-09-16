@@ -52,7 +52,14 @@ gets <- function(symb.chr, envir) {
       # nocov end
     }
     if(ex.try) {
-      list(obj=envir[[symb.chr]], envir=envir)
+      obj.val <- tryCatch(
+        envir[[symb.chr]],
+        error=function(e) stop(
+          "Error evaluating promise for symbol `", symb.chr, "` in ",
+          "environment ", envir
+        )
+      )
+      list(obj=obj.val, envir=envir)
     } else {
       gets(symb.chr, envir=parent.env(envir))
     }
