@@ -121,38 +121,42 @@ grp_by <- function(.data, ...) {
   structure(.data, .GRP=grp.sub)
 }
 summr <- function(.data, ...) {
-  exps.sub <- clean.dots(recsub(substitute(list(...)), .data, parent.frame()))
+  exps.sub <- clean_dots(recsub(substitute(list(...)), .data, parent.frame()))
   grps <- attr(.data, ".GRP")
   splits <- eval(grps, .data, parent.frame())
 
   exps.names <- if(!is.null(names(exps.sub))) tail(names(exps.sub), -1L) else
     paste0("V", seq_along(exps.sub))
+  grps.names <- group_names(grps)
 
-  dat.split <- split(.data, splits)
-  res.list <- setNames(vector("list", length(exps.sub)), exps.names)
+  dat.split <- unname(split(.data, splits, drop=TRUE))
+  grp.split <- unname(
+    split(setNames(as.data.frame(splits), grps.names), splits, drop=TRUE))
 
   # compute the aggregations
 
   res.list <- c(
-    list(grp=names(dat.split)),
-    setNames(
-      lapply(
-        exps.sub,
-        function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
-      ),
-      exps.names
+    lapply(
+      exps.sub,
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
   ) )
-  # Determine how many rows in each group, and recycle
+  # Find max number of rows in each group, and recycle to that
 
-  grp.lens <- vapply(res.list, lengths, integer(length(splits)))
+  lens <- lapply(res.list, lengths, integer(length(splits)))
+  grp.lens <- do.call(pmax, lens) * (do.call(pmin, lens) != 0)
 
-  for(exp.sub in exps.sub)
-    for(i in seq_along(dat.split))
-      res.list[[i]][[j]] <- eval(exp.sub, dat.split[[i]], parent.frame())
-
-  do.call(rbind, lapply(res.list, do.call, what=cbind))
+  res.list.r <- lapply(
+    c(grp.split, res.list),
+    function(x) unlist(Map(recycle, x, grp.lens))
+  )
+  as.data.frame(res.list.r)
 }
+starwars %>%
+  grp_by(species, hair_color) %>%
+  summr(median(height), mean(mass))
+
 iris %>% grp_by(Species) %>% summr(sum(Sepal.Length), mean(Sepal.Length))
+
 local({
   my.grp <- quote(Species)
   my.val <- quote(Sepal.Width)
