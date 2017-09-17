@@ -62,6 +62,7 @@ With one advantage that we can do things like:
 ```{r}
 my.var <- quote(species)
 summarise_by_r(starwars, my.var, height) %>% head(2)
+summarise_by(starwars, my.var, height) %>% head(2)
 ```
 
 This would be even simpler if `group_by` and `summarise` had been built with
@@ -78,11 +79,68 @@ summarise_r <- function(.data, ..., add=FALSE) {
   summarise.call[[1]] <- quote(summarise)
   eval(summarise.call, parent.frame())
 }
-summarise_by_r2 <- function(df, group, var)
-  df %>% group_by_r(group) %>% summarise_r(avg=mean(var))
+summarise_by_r2 <- function(df, group, var) {
+  group <- substitute(group)
+  var <- substitute(var)
+  eval(
+    bquote(.(df) %>% group_by_r(.(group)) %>% summarise_r(avg=mean(.(var)))),
+    parent.frame()
+  )
+}
+summarise_by_r2(starwars, species, height) %>% head(2)
+summarise_by_r2(starwars, my.var, height) %>% head(2)
 
-summarise_by_r2(starwars, species, height)
+local({
+  my.var <- quote(skin_color)
+  summarise_by_r2(starwars, my.var, height) %>% head(2)
+})
+my.var <- quote(skin_color)
+summarise_by_r2(starwars, my.var, height) %>% head(2)
 ```
+
+
+```{r}
+
+grp_by <- function(.data, ...) {
+  grp.sub <- recsub(substitute(list(...)), .data, parent.frame())
+  structure(.data, .GRP=grp.sub)
+}
+summr <- function(.data, ...) {
+  exps.sub <- recsub(substitute(list(...)), .data, parent.frame())
+
+  splits <- eval(attr(.data, ".GRP"), .data, parent.frame())
+  dat.split <- split(.data, splits)
+  res.list <- replicate(
+    length(dat.split), vector("list", length(exps.sub) - 1), simplify=FALSE
+  )
+
+  for(i in seq_along(dat.split))
+    for(j in tail(seq_along(exps.sub), -1L))
+      res.list[[i]][[j]] <- eval(exps.sub[[j]], dat.split[[i]], parent.frame())
+
+  do.call(rbind, lapply(res.list, do.call, what=cbind))
+}
+iris %>% grp_by(Species) %>% summr(sum(Sepal.Length), mean(Sepal.Length))
+local({
+  my.grp <- quote(Species)
+  my.val <- quote(Sepal.Width)
+  iris %>% grp_by(my.grp) %>% summr(sum(my.val), mean(my.val))
+})
+
+my_sum <- function(.data, group, var) {
+  eval(
+    bquote(
+      .(.data) %>%
+        grp_by(.(substitute(group))) %>%
+        summr(sum(.(substitute(var))), mean(.(substitute(var))))
+    ),
+    parent.frame()
+  )
+}
+my_sum(iris, Species, Petal.Length)
+
+```
+
 
 ## References
 
