@@ -102,6 +102,13 @@ summarise_by_r2(starwars, my.var, height) %>% head(2)
 ```{r}
 dot_list <- function(x, pre="V") {
   dots <- tail(as.list(x), -1L)
+  # handle case where dots were passed as a list, though ambiguity remains as to
+  # whether dots was a single list item...; blergh, how do we resolve?
+  if(
+    length(dots) == 1L && is.call(dots[[1L]]) &&
+    dots[[1L]][[1L]] == quote(list)
+  )
+    dots <- tail(as.list(dots[[1L]]), -1L)
   for(i in seq_along(dots))
     names(dots)[i] <- if(is.language(dots[[i]])) deparse(dots[[i]])[[1]]
       else sprintf("%s%d", pre, i)
@@ -111,15 +118,15 @@ grp_by <- function(.data, ..., .ENV=parent.frame()) {
   grp.sub <- recsub(substitute(list(...)), .data, .ENV)
   structure(.data, .GRP=dot_list(grp.sub, "G"))
 }
-summr <- function(.data, ..., .ENV=parent.frame()) {
-  exps.sub <- recsub(substitute(list(...)), .data, .ENV)
+summr_l <- function(.data, els, .ENV=parent.frame()) {
+  exps.sub <- substitute(els)
 
   # compute groups and split data
 
   has.grp <- !is.null(attr(.data, ".GRP"))
   .data <- as.data.frame(.data)
   grps <- if(!has.grp) list(rep_len(1, nrow(.data))) else attr(.data, ".GRP")
-  splits <- lapply(grps, eval, .data, parent.frame())
+  splits <- lapply(grps, eval, .data, .ENV)
   dat.split <- split(.data, splits, drop=TRUE)
   grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
 
@@ -127,7 +134,7 @@ summr <- function(.data, ..., .ENV=parent.frame()) {
 
   res.list <- lapply(
     dot_list(exps.sub),
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
+    function(exp) lapply(dat.split, eval, expr=exp, enclos=.ENV)
   )
   # Find max number of rows in each group, and recycle to that
 
@@ -136,13 +143,50 @@ summr <- function(.data, ..., .ENV=parent.frame()) {
     c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
   )
   as.data.frame(res.list.r)
+
+}
+```
+need a function that will look at a substituted expression and decide whether
+it needs to be wrapped in a list.  Some questions:
+
+* how can we tell if it is a list or not?  Do we force it? But maybe it can't
+  even be `evaled` under SE?
+* Maybe rule is you must explicitly use `list`?  But if you do that, you can
+  no longer pass a list as an argument?
+* What about if we `recsub`, and check for `list`?  If we want an actual list we
+  can just do `list(list())`
+* I think in this case, the only issue is that if someone interjects and object
+  `list` in the search path that isn't actually the list function, in which case
+  we would get confused.  Would have to check that the found object on search
+  path is the list we care about; I guess can just run a separate search for
+  `list` to confirm.
+
+
+```{r}
+summr <- function(.data, ..., .ENV=parent.env()) {
+  exps.sub <- recsub(substitute(list(...)), .data, .ENV)
+  eval(.bquote(.(summr_l)(.(.data), .(exps.sub), .ENV)))
 }
 `[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
-
   j.sub <- substitute(j)
   by.sub <- substitute(by)
+  eval(bquote(.(summr_l)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
+}
+listify <- function(x, envir, enclos) {
+  get_with_env("list", as.environment(envir
+  if(
+    !is.call(x) || (is.call(x) && 
+}
+`[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
+  j.sub <- listify(recsub(substitute(j), x, .ENV))
+  by.sub <- listify(recsub(substitute(by), x, .ENV))
+
+
+
+
   eval(bquote(.(summr)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
 }
+
 as.super_df <- function(x) {
   class(x) <- c("super_df", class(x))
   x
