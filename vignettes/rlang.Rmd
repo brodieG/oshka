@@ -107,12 +107,12 @@ dot_list <- function(x, pre="V") {
       else sprintf("%s%d", pre, i)
   dots
 }
-grp_by <- function(.data, ...) {
-  grp.sub <- recsub(substitute(list(...)), .data, parent.frame())
+grp_by <- function(.data, ..., .ENV=parent.frame()) {
+  grp.sub <- recsub(substitute(list(...)), .data, .ENV)
   structure(.data, .GRP=dot_list(grp.sub, "G"))
 }
-summr <- function(.data, ...) {
-  exps.sub <- recsub(substitute(list(...)), .data, parent.frame())
+summr <- function(.data, ..., .ENV=parent.frame()) {
+  exps.sub <- recsub(substitute(list(...)), .data, .ENV)
 
   # compute groups and split data
 
@@ -137,10 +137,11 @@ summr <- function(.data, ...) {
   )
   as.data.frame(res.list.r)
 }
-`[.super_df` <- function(x, i, j, by, drop=FALSE) {
+`[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
+
   j.sub <- substitute(j)
   by.sub <- substitute(by)
-  eval(bquote(.(summr)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), parent.frame())
+  eval(bquote(.(summr)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
 }
 as.super_df <- function(x) {
   class(x) <- c("super_df", class(x))
@@ -177,6 +178,13 @@ my_sum <- function(.data, group, var) {
 }
 my_sum(iris, Species, Petal.Length)
 
+```{r}
+ll <- base::list
+tf <- function(data, ...) {
+  expr <- substitute(ll(...))
+  vals <- eval(expr, data, parent.frame())
+  vals
+}
 ```
 
 
