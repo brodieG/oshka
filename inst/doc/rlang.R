@@ -32,6 +32,7 @@ summarise_by_r(starwars, species, height) %>% head(2)
 ## ------------------------------------------------------------------------
 my.var <- quote(species)
 summarise_by_r(starwars, my.var, height) %>% head(2)
+summarise_by(starwars, my.var, height) %>% head(2)
 
 ## ------------------------------------------------------------------------
 group_by_r <- function(.data, ..., add=FALSE) {
@@ -44,8 +45,95 @@ summarise_r <- function(.data, ..., add=FALSE) {
   summarise.call[[1]] <- quote(summarise)
   eval(summarise.call, parent.frame())
 }
-summarise_by_r2 <- function(df, group, var)
-  df %>% group_by_r(group) %>% summarise_r(avg=mean(var))
+summarise_by_r2 <- function(df, group, var) {
+  group <- substitute(group)
+  var <- substitute(var)
+  eval(
+    bquote(.(df) %>% group_by_r(.(group)) %>% summarise_r(avg=mean(.(var)))),
+    parent.frame()
+  )
+}
+summarise_by_r2(starwars, species, height) %>% head(2)
+summarise_by_r2(starwars, my.var, height) %>% head(2)
 
-summarise_by_r2(starwars, species, height)
+local({
+  my.var <- quote(skin_color)
+  summarise_by_r2(starwars, my.var, height) %>% head(2)
+})
+my.var <- quote(skin_color)
+summarise_by_r2(starwars, my.var, height) %>% head(2)
+
+## ------------------------------------------------------------------------
+
+clean_dots <- function(x) tail(as.list(x), -1L)
+recycle <- function(x, n) {
+  if(length(x) < n) x <- rep(x, ceil(n / length(x)))
+  length(x) <- n
+  x
+}
+group_names <- function(x) {
+  names.clean <- clean_dots(x)
+  group.res <- vector("list", length(names.clean))
+  for(i in seq_along(names.clean)) group.res[[i]] <-
+    if(is.symbol(names.clean[[i]])) as.character(names.clean[[i]])
+    else sprintf("G%d", i)
+  group.res
+}
+
+grp_by <- function(.data, ...) {
+  grp.sub <- recsub(substitute(list(...)), .data, parent.frame())
+  structure(.data, .GRP=grp.sub)
+}
+summr <- function(.data, ...) {
+  exps.sub <- clean_dots(recsub(substitute(list(...)), .data, parent.frame()))
+  grps <- attr(.data, ".GRP")
+  splits <- eval(grps, .data, parent.frame())
+
+  exps.names <- if(!is.null(names(exps.sub))) tail(names(exps.sub), -1L) else
+    paste0("V", seq_along(exps.sub))
+
+  dat.split <- split(.data, splits)
+  res.list <- setNames(vector("list", length(exps.sub)), exps.names)
+
+  # compute the aggregations
+
+  res.list <- c(
+    list(grp=names(dat.split)),
+    setNames(
+      lapply(
+        exps.sub,
+        function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
+      ),
+      exps.names
+  ) )
+  # Find max number of rows in each group, and recycle to that
+
+  grp.lens <- do.call(
+    pmax,
+    lapply(res.list, lengths, integer(length(splits)))
+  )
+  res.list.r <- lapply(
+    res.list, function(x) unlist(Map(recycle, x, grp.lens))
+  )
+  as.data.frame(res.list.r)
+}
+iris %>% grp_by(Species) %>% summr(sum(Sepal.Length), mean(Sepal.Length))
+local({
+  my.grp <- quote(Species)
+  my.val <- quote(Sepal.Width)
+  iris %>% grp_by(my.grp) %>% summr(sum(my.val), mean(my.val))
+})
+
+my_sum <- function(.data, group, var) {
+  eval(
+    bquote(
+      .(.data) %>%
+        grp_by(.(substitute(group))) %>%
+        summr(sum(.(substitute(var))), mean(.(substitute(var))))
+    ),
+    parent.frame()
+  )
+}
+my_sum(iris, Species, Petal.Length)
+
 

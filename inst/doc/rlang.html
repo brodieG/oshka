@@ -123,6 +123,8 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
      &lt;chr&gt; &lt;dbl&gt;
 1   Aleena    79
 2 Besalisk   198</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">summarise_by</span>(starwars, my.var, height) %&gt;%<span class="st"> </span><span class="kw">head</span>(<span class="dv">2</span>)</code></pre></div>
+<pre><code>Error in grouped_df_impl(data, unname(vars), drop): Column `my.var` is unknown</code></pre>
 <p>This would be even simpler if <code>group_by</code> and <code>summarise</code> had been built with <code>recsub</code> to begin with:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">group_by_r &lt;-<span class="st"> </span>function(.data, ..., <span class="dt">add=</span><span class="ot">FALSE</span>) {
   group.call &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">sys.call</span>(), .data, <span class="kw">parent.frame</span>())
@@ -134,11 +136,123 @@ summarise_r &lt;-<span class="st"> </span>function(.data, ..., <span class="dt">
   summarise.call[[<span class="dv">1</span>]] &lt;-<span class="st"> </span><span class="kw">quote</span>(summarise)
   <span class="kw">eval</span>(summarise.call, <span class="kw">parent.frame</span>())
 }
-summarise_by_r2 &lt;-<span class="st"> </span>function(df, group, var)
-  df %&gt;%<span class="st"> </span><span class="kw">group_by_r</span>(group) %&gt;%<span class="st"> </span><span class="kw">summarise_r</span>(<span class="dt">avg=</span><span class="kw">mean</span>(var))
+summarise_by_r2 &lt;-<span class="st"> </span>function(df, group, var) {
+  group &lt;-<span class="st"> </span><span class="kw">substitute</span>(group)
+  var &lt;-<span class="st"> </span><span class="kw">substitute</span>(var)
+  <span class="kw">eval</span>(
+    <span class="kw">bquote</span>(.(df) %&gt;%<span class="st"> </span><span class="kw">group_by_r</span>(.(group)) %&gt;%<span class="st"> </span><span class="kw">summarise_r</span>(<span class="dt">avg=</span><span class="kw">mean</span>(.(var)))),
+    <span class="kw">parent.frame</span>()
+  )
+}
+<span class="kw">summarise_by_r2</span>(starwars, species, height) %&gt;%<span class="st"> </span><span class="kw">head</span>(<span class="dv">2</span>)</code></pre></div>
+<pre><code># A tibble: 2 x 2
+   species   avg
+     &lt;chr&gt; &lt;dbl&gt;
+1   Aleena    79
+2 Besalisk   198</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">summarise_by_r2</span>(starwars, my.var, height) %&gt;%<span class="st"> </span><span class="kw">head</span>(<span class="dv">2</span>)</code></pre></div>
+<pre><code># A tibble: 2 x 2
+   species   avg
+     &lt;chr&gt; &lt;dbl&gt;
+1   Aleena    79
+2 Besalisk   198</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">local</span>({
+  my.var &lt;-<span class="st"> </span><span class="kw">quote</span>(skin_color)
+  <span class="kw">summarise_by_r2</span>(starwars, my.var, height) %&gt;%<span class="st"> </span><span class="kw">head</span>(<span class="dv">2</span>)
+})</code></pre></div>
+<pre><code># A tibble: 2 x 2
+  skin_color   avg
+       &lt;chr&gt; &lt;dbl&gt;
+1       blue 187.0
+2 blue, grey 115.5</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">my.var &lt;-<span class="st"> </span><span class="kw">quote</span>(skin_color)
+<span class="kw">summarise_by_r2</span>(starwars, my.var, height) %&gt;%<span class="st"> </span><span class="kw">head</span>(<span class="dv">2</span>)</code></pre></div>
+<pre><code># A tibble: 2 x 2
+  skin_color   avg
+       &lt;chr&gt; &lt;dbl&gt;
+1       blue 187.0
+2 blue, grey 115.5</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">clean_dots &lt;-<span class="st"> </span>function(x) <span class="kw">tail</span>(<span class="kw">as.list</span>(x), -1L)
+recycle &lt;-<span class="st"> </span>function(x, n) {
+  if(<span class="kw">length</span>(x) &lt;<span class="st"> </span>n) x &lt;-<span class="st"> </span><span class="kw">rep</span>(x, <span class="kw">ceil</span>(n /<span class="st"> </span><span class="kw">length</span>(x)))
+  <span class="kw">length</span>(x) &lt;-<span class="st"> </span>n
+  x
+}
+group_names &lt;-<span class="st"> </span>function(x) {
+  names.clean &lt;-<span class="st"> </span><span class="kw">clean_dots</span>(x)
+  group.res &lt;-<span class="st"> </span><span class="kw">vector</span>(<span class="st">&quot;list&quot;</span>, <span class="kw">length</span>(names.clean))
+  for(i in <span class="kw">seq_along</span>(names.clean)) group.res[[i]] &lt;-
+<span class="st">    </span>if(<span class="kw">is.symbol</span>(names.clean[[i]])) <span class="kw">as.character</span>(names.clean[[i]])
+    else <span class="kw">sprintf</span>(<span class="st">&quot;G%d&quot;</span>, i)
+  group.res
+}
 
-<span class="kw">summarise_by_r2</span>(starwars, species, height)</code></pre></div>
-<pre><code>Error in gets(symb.chr, envir = parent.env(envir)): object 'species' not found</code></pre>
+grp_by &lt;-<span class="st"> </span>function(.data, ...) {
+  grp.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(<span class="kw">list</span>(...)), .data, <span class="kw">parent.frame</span>())
+  <span class="kw">structure</span>(.data, <span class="dt">.GRP=</span>grp.sub)
+}
+summr &lt;-<span class="st"> </span>function(.data, ...) {
+  exps.sub &lt;-<span class="st"> </span><span class="kw">clean_dots</span>(<span class="kw">recsub</span>(<span class="kw">substitute</span>(<span class="kw">list</span>(...)), .data, <span class="kw">parent.frame</span>()))
+  grps &lt;-<span class="st"> </span><span class="kw">attr</span>(.data, <span class="st">&quot;.GRP&quot;</span>)
+  splits &lt;-<span class="st"> </span><span class="kw">eval</span>(grps, .data, <span class="kw">parent.frame</span>())
+
+  exps.names &lt;-<span class="st"> </span>if(!<span class="kw">is.null</span>(<span class="kw">names</span>(exps.sub))) <span class="kw">tail</span>(<span class="kw">names</span>(exps.sub), -1L) else
+    <span class="kw">paste0</span>(<span class="st">&quot;V&quot;</span>, <span class="kw">seq_along</span>(exps.sub))
+
+  dat.split &lt;-<span class="st"> </span><span class="kw">split</span>(.data, splits)
+  res.list &lt;-<span class="st"> </span><span class="kw">setNames</span>(<span class="kw">vector</span>(<span class="st">&quot;list&quot;</span>, <span class="kw">length</span>(exps.sub)), exps.names)
+
+  <span class="co"># compute the aggregations</span>
+
+  res.list &lt;-<span class="st"> </span><span class="kw">c</span>(
+    <span class="kw">list</span>(<span class="dt">grp=</span><span class="kw">names</span>(dat.split)),
+    <span class="kw">setNames</span>(
+      <span class="kw">lapply</span>(
+        exps.sub,
+        function(exp) <span class="kw">lapply</span>(dat.split, eval, <span class="dt">expr=</span>exp, <span class="dt">enclos=</span><span class="kw">parent.frame</span>())
+      ),
+      exps.names
+  ) )
+  <span class="co"># Find max number of rows in each group, and recycle to that</span>
+
+  grp.lens &lt;-<span class="st"> </span><span class="kw">do.call</span>(
+    pmax,
+    <span class="kw">lapply</span>(res.list, lengths, <span class="kw">integer</span>(<span class="kw">length</span>(splits)))
+  )
+  res.list.r &lt;-<span class="st"> </span><span class="kw">lapply</span>(
+    res.list, function(x) <span class="kw">unlist</span>(<span class="kw">Map</span>(recycle, x, grp.lens))
+  )
+  <span class="kw">as.data.frame</span>(res.list.r)
+}
+iris %&gt;%<span class="st"> </span><span class="kw">grp_by</span>(Species) %&gt;%<span class="st"> </span><span class="kw">summr</span>(<span class="kw">sum</span>(Sepal.Length), <span class="kw">mean</span>(Sepal.Length))</code></pre></div>
+<pre><code>                  grp    V1    V2
+setosa         setosa 250.3 5.006
+versicolor versicolor 296.8 5.936
+virginica   virginica 329.4 6.588</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">local</span>({
+  my.grp &lt;-<span class="st"> </span><span class="kw">quote</span>(Species)
+  my.val &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width)
+  iris %&gt;%<span class="st"> </span><span class="kw">grp_by</span>(my.grp) %&gt;%<span class="st"> </span><span class="kw">summr</span>(<span class="kw">sum</span>(my.val), <span class="kw">mean</span>(my.val))
+})</code></pre></div>
+<pre><code>                  grp    V1    V2
+setosa         setosa 171.4 3.428
+versicolor versicolor 138.5 2.770
+virginica   virginica 148.7 2.974</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">my_sum &lt;-<span class="st"> </span>function(.data, group, var) {
+  <span class="kw">eval</span>(
+    <span class="kw">bquote</span>(
+      .(.data) %&gt;%
+<span class="st">        </span><span class="kw">grp_by</span>(.(<span class="kw">substitute</span>(group))) %&gt;%
+<span class="st">        </span><span class="kw">summr</span>(<span class="kw">sum</span>(.(<span class="kw">substitute</span>(var))), <span class="kw">mean</span>(.(<span class="kw">substitute</span>(var))))
+    ),
+    <span class="kw">parent.frame</span>()
+  )
+}
+<span class="kw">my_sum</span>(iris, Species, Petal.Length)</code></pre></div>
+<pre><code>                  grp    V1    V2
+setosa         setosa  73.1 1.462
+versicolor versicolor 213.0 4.260
+virginica   virginica 277.6 5.552</code></pre>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>

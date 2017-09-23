@@ -183,7 +183,8 @@ summarize_r_l <- function(x, els, .ENV=parent.frame()) {
 filter_r <- function(x, subset) {
   sub.exp <- substitute(subset)
   sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
-  x[!is.na(sub.val) & sub.val, ]
+  if(!is.null(sub.val))
+    as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
 }
 
 # Pipe
@@ -220,7 +221,7 @@ starwars %$% group_r(species, hair_color)
       .(summarize_r_l)(
         .(group_r_l)(
           .(filter_r)(.(x), .(if(!missing(i.sub)) i.sub)),
-          .(if(!missing(by.sub)) by.sub else list()))
+          .(if(!missing(by.sub)) by.sub else list())
         ),
         .(if(!missing(j.sub)) j.sub else list())
     ) ),
@@ -233,27 +234,12 @@ as.super_df <- function(x) {
   x
 }
 
-listify <- function(x, envir, enclos) {
-  get_with_env("list", as.environment(envir
-  if(
-    !is.call(x) || (is.call(x) &&
-}
-`[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
-  j.sub <- listify(recsub(substitute(j), x, .ENV))
-  by.sub <- listify(recsub(substitute(by), x, .ENV))
-
-
-
-
-  eval(bquote(.(summr)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
-}
 
 sw <- as.super_df(starwars)
 sw[, list(mean(height), max(mass)), list(species, hair_color)]
 
-sw[, my.j, list(species, hair_color)]
-
 my.j <- quote(list(mean(height), max(mass)))
+sw[, my.j, list(species, hair_color)]
 
 sw[, mean(height), species]
 
