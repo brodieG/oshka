@@ -18,7 +18,74 @@ library(dplyr)
 library(recsub)
 ```
 
-## Overview
+## Poor Person's Dplyr
+
+```{r}
+dot_list <- function(x, pre="V") {
+  dots <- tail(as.list(x), -1L)
+  for(i in seq_along(dots))
+    names(dots)[i] <- if(is.language(dots[[i]])) deparse(dots[[i]])[[1]]
+      else sprintf("%s%d", pre, i)
+  dots
+}
+# Grouping
+
+group_r <- function(x, ...)
+  eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+
+group_r_l <- function(x, els, .ENV=parent.frame()) {
+  exps.sub <- recsub(substitute(els), x, .ENV)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+  structure(x, .GRP=dot_list(exps.sub, "G"))
+}
+# == Summarizing ==
+
+summarize_r <- function(x, ...)
+  eval(bquote(.(summr_l)(.(x), .(substitute(list(...))), parent.frame())))
+
+summarize_r_l <- function(x, els, .ENV=parent.frame()) {
+  # Handle case where passed as a list or single exp
+  exps.sub <- recsub(substitute(els), x, .ENV)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+
+  # compute groups and splits
+  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
+  x <- as.data.frame(x)
+  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+  splits <- lapply(grps, eval, x, .ENV)
+  dat.split <- split(x, splits, drop=TRUE)
+  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+
+  # compute the aggregations
+  res.list <- lapply(
+    dot_list(exps.sub),
+    function(exp) lapply(dat.split, eval, expr=exp, enclos=.ENV)
+  )
+  # Find max number of rows in each group, and recycle to that
+  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
+  res.list.r <- lapply(
+    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
+  )
+  as.data.frame(res.list.r)
+}
+# == Filtering ==
+filter_r <- function(x, subset) {
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  if(!is.null(sub.val))
+    as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
+}
+# == Pipe ==
+`%$%` <- function(x, y) {
+  x.sub <- recsub(substitute(x), parent.frame())
+  y.sub <- recsub(substitute(y), parent.frame())
+  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+
+  eval(as.call(c(y.list[1], list(x.sub), tail(y.list, -1))), parent.frame())
+}
+
 
 We want to re-implement `summarize_by` function introduced in the [userR 2017
 Tidy Eval][1] session:
@@ -119,74 +186,17 @@ it needs to be wrapped in a list.  Some questions:
 
 
 ```{r}
-dot_list <- function(x, pre="V") {
-  dots <- tail(as.list(x), -1L)
-  for(i in seq_along(dots))
-    names(dots)[i] <- if(is.language(dots[[i]])) deparse(dots[[i]])[[1]]
-      else sprintf("%s%d", pre, i)
-  dots
-}
 
-# Grouping
-
-group_r <- function(x, ..., .ENV=parent.frame()) {
-  grp.sub <- recsub(substitute(list(...)), x, .ENV)
-  eval(bquote(.(group_r_l)(.(x), .(grp.sub), .ENV=.(.ENV))), .ENV)
-}
-group_r_l <- function(x, els, .ENV=parent.frame()) {
-  exps.sub <- recsub(substitute(els), x, .ENV)
-  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-    exps.sub <- call("list", exps.sub)
-  structure(x, .GRP=dot_list(exps.sub, "G"))
-}
-# == Summarizing ==
-
-summarize_r <- function(x, ..., .ENV=parent.frame()) {
-  exps.sub <- recsub(substitute(list(...)), x, .ENV)
-  eval(bquote(.(summr_l)(.(x), .(exps.sub), .ENV)))
-}
-summarize_r_l <- function(x, els, .ENV=parent.frame()) {
-  # Handle case where passed as a list or single exp
-  exps.sub <- recsub(substitute(els), x, .ENV)
-  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-    exps.sub <- call("list", exps.sub)
-
-  # compute groups and splits
-  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
-  x <- as.data.frame(x)
-  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
-  splits <- lapply(grps, eval, x, .ENV)
-  dat.split <- split(x, splits, drop=TRUE)
-  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
-
-  # compute the aggregations
-  res.list <- lapply(
-    dot_list(exps.sub),
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=.ENV)
+summ_by <- function(x, group, var) {
+  eval(
+    bquote(
+      .(summarize_r_l)(
+        .(group_r_l)(.(x), .(substitute(group))),
+        mean(.(substitute(var)))
+    ) ),
+    parent.frame()
   )
-  # Find max number of rows in each group, and recycle to that
-  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
-  res.list.r <- lapply(
-    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
-  )
-  as.data.frame(res.list.r)
 }
-# == Filtering ==
-filter_r <- function(x, subset) {
-  sub.exp <- substitute(subset)
-  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
-  if(!is.null(sub.val))
-    as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
-}
-# == Pipe ==
-`%$%` <- function(x, y) {
-  x.sub <- recsub(substitute(x), parent.frame())
-  y.sub <- recsub(substitute(y), parent.frame())
-  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
-
-  eval(as.call(c(y.list[1], list(x.sub), tail(y.list, -1))), parent.frame())
-}
-
 # Data set:
 
 DF <- cbind(
