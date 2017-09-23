@@ -98,6 +98,25 @@ my.var <- quote(skin_color)
 summarise_by_r2(starwars, my.var, height) %>% head(2)
 ```
 
+need a function that will look at a substituted expression and decide whether
+it needs to be wrapped in a list.  Some questions:
+
+* how can we tell if it is a list or not?  Do we force it? But maybe it can't
+  even be `evaled` under SE?
+* Maybe rule is you must explicitly use `list`?  But if you do that, you can
+  no longer pass a list as an argument?
+* What about if we `recsub`, and check for `list`?  If we want an actual list we
+  can just do `list(list())`
+* I think in this case, the only issue is that if someone interjects and object
+  `list` in the search path that isn't actually the list function, in which case
+  we would get confused.  Would have to check that the found object on search
+  path is the list we care about; I guess can just run a separate search for
+  `list` to confirm.
+* Also, right now we don't even substitute first position..., and there is the
+  complication that in R-semantics a `list` non function object can't mask the
+  base `list` object, so the rules at position one have to be different.
+* So let's start with a normal recsub
+
 
 ```{r}
 dot_list <- function(x, pre="V") {
@@ -114,68 +133,110 @@ dot_list <- function(x, pre="V") {
       else sprintf("%s%d", pre, i)
   dots
 }
-grp_by <- function(.data, ..., .ENV=parent.frame()) {
-  grp.sub <- recsub(substitute(list(...)), .data, .ENV)
-  structure(.data, .GRP=dot_list(grp.sub, "G"))
+
+# Grouping
+
+group_r <- function(x, ..., .ENV=parent.frame()) {
+  grp.sub <- recsub(substitute(list(...)), x, .ENV)
+  eval(bquote(.(group_r_l)(.(x), .(grp.sub), .ENV=.(.ENV))), .ENV)
 }
-summr_l <- function(.data, els, .ENV=parent.frame()) {
-  exps.sub <- substitute(els)
+group_r_l <- function(x, els, .ENV=parent.frame()) {
+  exps.sub <- recsub(substitute(els), x, .ENV)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+  structure(x, .GRP=dot_list(exps.sub, "G"))
+}
+summarize_r <- function(x, ..., .ENV=parent.frame()) {
+  exps.sub <- recsub(substitute(list(...)), x, .ENV)
+  eval(bquote(.(summr_l)(.(x), .(exps.sub), .ENV)))
+}
+# Summarizing
 
-  # compute groups and split data
+summarize_r_l <- function(x, els, .ENV=parent.frame()) {
+  # Handle case where passed as a list or single exp
+  exps.sub <- recsub(substitute(els), x, .ENV)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
 
-  has.grp <- !is.null(attr(.data, ".GRP"))
-  .data <- as.data.frame(.data)
-  grps <- if(!has.grp) list(rep_len(1, nrow(.data))) else attr(.data, ".GRP")
-  splits <- lapply(grps, eval, .data, .ENV)
-  dat.split <- split(.data, splits, drop=TRUE)
+  # compute groups and splits
+  has.grp <- !is.null(attr(x, ".GRP"))
+  x <- as.data.frame(x)
+  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+  splits <- lapply(grps, eval, x, .ENV)
+  dat.split <- split(x, splits, drop=TRUE)
   grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
 
   # compute the aggregations
-
   res.list <- lapply(
     dot_list(exps.sub),
     function(exp) lapply(dat.split, eval, expr=exp, enclos=.ENV)
   )
   # Find max number of rows in each group, and recycle to that
-
   lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
   res.list.r <- lapply(
     c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
   )
   as.data.frame(res.list.r)
-
 }
-```
-need a function that will look at a substituted expression and decide whether
-it needs to be wrapped in a list.  Some questions:
+# Filtering
 
-* how can we tell if it is a list or not?  Do we force it? But maybe it can't
-  even be `evaled` under SE?
-* Maybe rule is you must explicitly use `list`?  But if you do that, you can
-  no longer pass a list as an argument?
-* What about if we `recsub`, and check for `list`?  If we want an actual list we
-  can just do `list(list())`
-* I think in this case, the only issue is that if someone interjects and object
-  `list` in the search path that isn't actually the list function, in which case
-  we would get confused.  Would have to check that the found object on search
-  path is the list we care about; I guess can just run a separate search for
-  `list` to confirm.
-
-
-```{r}
-summr <- function(.data, ..., .ENV=parent.env()) {
-  exps.sub <- recsub(substitute(list(...)), .data, .ENV)
-  eval(.bquote(.(summr_l)(.(.data), .(exps.sub), .ENV)))
+filter_r <- function(x, subset) {
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  x[!is.na(sub.val) & sub.val, ]
 }
+
+# Pipe
+
+`%$%` <- function(x, y) {
+  x.sub <- recsub(substitute(x), parent.frame())
+  y.sub <- recsub(substitute(y), parent.frame())
+  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+
+  eval(as.call(c(y.list[1], list(x.sub), tail(y.list, -1))), parent.frame())
+}
+# Data set:
+
+DF <- cbind(
+  USArrests, Divion=state.division, Region=state.region,
+  Population=state.x77[, 1]
+)
+
+
+starwars %$%
+  filter_r(!is.na(hair_color)) %$%
+  group_r(species, hair_color) %$%
+  summarize_r(median(height), mean(mass))
+
+starwars %$% group_r(species, hair_color)
+
+
 `[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
+  i.sub <- substitute(i)
   j.sub <- substitute(j)
   by.sub <- substitute(by)
-  eval(bquote(.(summr_l)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
+  res.df <- eval(
+    bquote(
+      .(summarize_r_l)(
+        .(group_r_l)(
+          .(filter_r)(.(x), .(if(!missing(i.sub)) i.sub)),
+          .(if(!missing(by.sub)) by.sub else list()))
+        ),
+        .(if(!missing(j.sub)) j.sub else list())
+    ) ),
+    enclos=.ENV
+  )
+  as.super_df(res.df)
 }
+as.super_df <- function(x) {
+  class(x) <- c("super_df", class(x))
+  x
+}
+
 listify <- function(x, envir, enclos) {
   get_with_env("list", as.environment(envir
   if(
-    !is.call(x) || (is.call(x) && 
+    !is.call(x) || (is.call(x) &&
 }
 `[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
   j.sub <- listify(recsub(substitute(j), x, .ENV))
@@ -187,12 +248,13 @@ listify <- function(x, envir, enclos) {
   eval(bquote(.(summr)(.(grp_by)(.(x), .(by.sub)), .(j.sub))), enclos=.ENV)
 }
 
-as.super_df <- function(x) {
-  class(x) <- c("super_df", class(x))
-  x
-}
 sw <- as.super_df(starwars)
 sw[, list(mean(height), max(mass)), list(species, hair_color)]
+
+sw[, my.j, list(species, hair_color)]
+
+my.j <- quote(list(mean(height), max(mass)))
+
 sw[, mean(height), species]
 
 starwars %>% group_by(species, hair_color) %>% summarize(mean(height))
