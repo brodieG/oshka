@@ -121,13 +121,6 @@ it needs to be wrapped in a list.  Some questions:
 ```{r}
 dot_list <- function(x, pre="V") {
   dots <- tail(as.list(x), -1L)
-  # handle case where dots were passed as a list, though ambiguity remains as to
-  # whether dots was a single list item...; blergh, how do we resolve?
-  if(
-    length(dots) == 1L && is.call(dots[[1L]]) &&
-    dots[[1L]][[1L]] == quote(list)
-  )
-    dots <- tail(as.list(dots[[1L]]), -1L)
   for(i in seq_along(dots))
     names(dots)[i] <- if(is.language(dots[[i]])) deparse(dots[[i]])[[1]]
       else sprintf("%s%d", pre, i)
@@ -159,7 +152,7 @@ summarize_r_l <- function(x, els, .ENV=parent.frame()) {
     exps.sub <- call("list", exps.sub)
 
   # compute groups and splits
-  has.grp <- !is.null(attr(x, ".GRP"))
+  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
   x <- as.data.frame(x)
   grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
   splits <- lapply(grps, eval, x, .ENV)
@@ -212,9 +205,9 @@ DF <- cbind(
       .(summarize_r_l)(
         .(group_r_l)(
           .(filter_r)(.(x), .(if(!missing(i.sub)) i.sub)),
-          .(if(!missing(by.sub)) by.sub else list())
+          .(if(!missing(by.sub)) by.sub else quote(list()))
         ),
-        .(if(!missing(j.sub)) j.sub else list())
+        .(if(!missing(j.sub)) j.sub else quote(list()))
     ) ),
     .ENV
   )
@@ -257,12 +250,20 @@ my.j <- quote(list(mean(height), max(mass)))
 sw[, my.j, list(species, hair_color)]
 
 sw[, mean(height), species]
+sw[, mean(height, na.rm=T)]
 
+my.grp.var <- quote(species)
+
+var <- NA
 local({
   hello <- "hello"
-  my.j <- quote(list(max(height), min(mass)))
-  sw[, my.j, list(species, hair_color)]
+  var <- quote(height)
+  e1 <- quote(max(var))
+  e2 <- quote(min(var))
+  exps <- list(quote(mean(var) / e1), quote(mean(var) / e2))
+  lapply(exps, function(x) sw[!is.na(var), x])
 })
+
 
 my_sum <- function(.data, group, var) {
   eval(
