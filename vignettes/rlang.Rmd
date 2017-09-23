@@ -146,12 +146,12 @@ group_r_l <- function(x, els, .ENV=parent.frame()) {
     exps.sub <- call("list", exps.sub)
   structure(x, .GRP=dot_list(exps.sub, "G"))
 }
+# == Summarizing ==
+
 summarize_r <- function(x, ..., .ENV=parent.frame()) {
   exps.sub <- recsub(substitute(list(...)), x, .ENV)
   eval(bquote(.(summr_l)(.(x), .(exps.sub), .ENV)))
 }
-# Summarizing
-
 summarize_r_l <- function(x, els, .ENV=parent.frame()) {
   # Handle case where passed as a list or single exp
   exps.sub <- recsub(substitute(els), x, .ENV)
@@ -178,17 +178,14 @@ summarize_r_l <- function(x, els, .ENV=parent.frame()) {
   )
   as.data.frame(res.list.r)
 }
-# Filtering
-
+# == Filtering ==
 filter_r <- function(x, subset) {
   sub.exp <- substitute(subset)
   sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
   if(!is.null(sub.val))
     as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
 }
-
-# Pipe
-
+# == Pipe ==
 `%$%` <- function(x, y) {
   x.sub <- recsub(substitute(x), parent.frame())
   y.sub <- recsub(substitute(y), parent.frame())
@@ -196,6 +193,7 @@ filter_r <- function(x, subset) {
 
   eval(as.call(c(y.list[1], list(x.sub), tail(y.list, -1))), parent.frame())
 }
+
 # Data set:
 
 DF <- cbind(
@@ -203,13 +201,6 @@ DF <- cbind(
   Population=state.x77[, 1]
 )
 
-
-starwars %$%
-  filter_r(!is.na(hair_color)) %$%
-  group_r(species, hair_color) %$%
-  summarize_r(median(height), mean(mass))
-
-starwars %$% group_r(species, hair_color)
 
 
 `[.super_df` <- function(x, i, j, by, drop=FALSE, .ENV=parent.frame()) {
@@ -225,15 +216,39 @@ starwars %$% group_r(species, hair_color)
         ),
         .(if(!missing(j.sub)) j.sub else list())
     ) ),
-    enclos=.ENV
+    .ENV
   )
   as.super_df(res.df)
 }
+
+f <- function() browser()
+y <- function() {
+  print(parent.frame())
+  evalq(f(), enclos=parent.frame())
+}
+local({
+  a <- 'A'
+  b <- 'B'
+  y()
+})
+
 as.super_df <- function(x) {
   class(x) <- c("super_df", class(x))
   x
 }
+    bquote(
+      .(summarize_r_l)(
+        .(group_r_l)(
+          .(filter_r)(.(NULL), .(if(!missing(i.sub)) i.sub)),
+          .(if(!missing(by.sub)) by.sub else list())
+        ),
+        .(if(!missing(j.sub)) j.sub else list())
+    ) )
 
+starwars %$%
+  filter_r(!is.na(hair_color)) %$%
+  group_r(species, hair_color) %$%
+  summarize_r(median(height), mean(mass))
 
 sw <- as.super_df(starwars)
 sw[, list(mean(height), max(mass)), list(species, hair_color)]
@@ -243,19 +258,10 @@ sw[, my.j, list(species, hair_color)]
 
 sw[, mean(height), species]
 
-starwars %>% group_by(species, hair_color) %>% summarize(mean(height))
-
-starwars %>%
-  grp_by(species, hair_color) %>%
-
-  summr(median(height), mean(mass))
-
-iris %>% grp_by(Species) %>% summr(sum(Sepal.Length), mean(Sepal.Length))
-
 local({
-  my.grp <- quote(Species)
-  my.val <- quote(Sepal.Width)
-  iris %>% grp_by(my.grp) %>% summr(sum(my.val), mean(my.val))
+  hello <- "hello"
+  my.j <- quote(list(max(height), min(mass)))
+  sw[, my.j, list(species, hair_color)]
 })
 
 my_sum <- function(.data, group, var) {
