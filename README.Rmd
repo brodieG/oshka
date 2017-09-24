@@ -68,11 +68,11 @@ then if they intend to use the programmable NSE feature.
 
 ## Philosophy and Trade-offs
 
-Our main objective with `recsub` was to have a simple and intuitive interface to
-programmable NSE for command line users.  Simplicity however comes with limits,
-and those manifest for the programmer of functions that implement NSE.  In
-particular, programmers will have to ensure that expressions are evaluated in
-the correct environments, as is the case with existing base R NSE functions.
+Our main objective with `recsub` is a simple, R-semantic, intuitive interface to
+programmable NSE.  Simplicity comes with limits, and those manifest for the
+programmer of functions that implement this programmable NSE.  In particular,
+programmers will have to ensure that expressions are evaluated in the correct
+environments, as is the case with existing base R NSE functions.
 
 For example, if we wanted to implement `subset2` as a wrapper to `subset`
 instead of as a completely new function, we would use:
@@ -93,8 +93,9 @@ subset3 <- function(x, subset, select, drop = FALSE, ...) {
 We use `bquote` to construct the call to `subset`, and `.()` to make sure that
 what needs to be evaluated in the frame of our function is.  Then, we `eval` in
 the `parent.frame()` so that the substituted language computes as expected.
-While this is a bit of work for the author of `subset3`, it allows the users
-some notable liberties:
+
+This requires some thought from the author of `subset3`, but the user benefits
+from that effort:
 
 ```{r}
 col.1 <- quote(Sepal.Length)
@@ -102,6 +103,9 @@ sub <- quote(Species == 'setosa')
 
 subset3(iris, sub & col.1 > 5.5, col.1:Petal.Length)
 ```
+
+For a more thorough exploration of using `recsub` to program NSE functions see
+the vignette.
 
 ## Development Status
 
