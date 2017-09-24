@@ -18,7 +18,18 @@ library(dplyr)
 library(recsub)
 ```
 
+## Nested Programmable NSE Functions
+
+While `recsub` makes it easy to write programmable NSE functions, re-using those
+functions inside others is a little trickier.
+
+In order for things to work properly 
+
+This is one area where more
+complex NSE frameworks like `rlang` have an advantage.
+
 ## Poor Person's Dplyr
+
 
 ```{r}
 dot_list <- function(x, pre="V") {
@@ -32,7 +43,6 @@ dot_list <- function(x, pre="V") {
 
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
-
 group_r_l <- function(x, els, .ENV=parent.frame()) {
   exps.sub <- recsub(substitute(els), x, .ENV)
   if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
@@ -42,11 +52,11 @@ group_r_l <- function(x, els, .ENV=parent.frame()) {
 # == Summarizing ==
 
 summarize_r <- function(x, ...)
-  eval(bquote(.(summr_l)(.(x), .(substitute(list(...))), parent.frame())))
+  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))), parent.frame())))
 
-summarize_r_l <- function(x, els, .ENV=parent.frame()) {
+summarize_r_l <- function(x, els) {
   # Handle case where passed as a list or single exp
-  exps.sub <- recsub(substitute(els), x, .ENV)
+  exps.sub <- recsub(substitute(els), x, parent.frame())
   if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
     exps.sub <- call("list", exps.sub)
 
@@ -54,14 +64,14 @@ summarize_r_l <- function(x, els, .ENV=parent.frame()) {
   has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
   x <- as.data.frame(x)
   grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
-  splits <- lapply(grps, eval, x, .ENV)
+  splits <- lapply(grps, eval, x, parent.frame())
   dat.split <- split(x, splits, drop=TRUE)
   grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
 
   # compute the aggregations
   res.list <- lapply(
     dot_list(exps.sub),
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=.ENV)
+    function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
   )
   # Find max number of rows in each group, and recycle to that
   lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
@@ -83,8 +93,26 @@ filter_r <- function(x, subset) {
   y.sub <- recsub(substitute(y), parent.frame())
   y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
 
-  eval(as.call(c(y.list[1], list(x.sub), tail(y.list, -1))), parent.frame())
+  sub_dat <- function(z, dat) {
+    if(is.call(z)) {
+      if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
+      else {
+        z.list <- as.list(z)
+        z <- as.call(c(z.list[1], list(dat), tail(z.list, -1)))
+    } }
+    z
+  }
+  eval(sub_dat(y.sub, x), parent.frame())
 }
+summ_by <- quote(group_by_r(group) %$% summarize_r(var))
+group <- quote(group_r(species))
+var <- quote(summarize_r(mean(height)))
+group_var <- quote(group %$% var)
+
+starwars %$% group_var
+
+```
+
 
 
 We want to re-implement `summarize_by` function introduced in the [userR 2017

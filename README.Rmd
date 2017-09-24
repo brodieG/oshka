@@ -17,7 +17,7 @@ library(recsub)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-## Overview
+## Programmable Non-Standard Evaluation
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -62,9 +62,36 @@ subset2(iris, my.exp.3)
 `recsub` abides by R semantics as much as possible so it should be intuitive to
 anyone familiar with `eval` and `quote`.  Additionally, any NSE function that
 you implement using `recsub` only requires that users know `quote`, and only
-then if they intend to use the programmable NSE feature.  One limitation of
-`recsub` is that as with `eval` you are responsible for ensuring the evaluation
-context is correct.
+then if they intend to use the programmable NSE feature.
+
+## Philosophy and Trade-offs
+
+Our main objective with `recsub` was to have a simple and intuitive interface to
+programmable NSE for command line users.  Simplicity however comes with limits,
+and those manifest for the programmer of functions that implement NSE.  In
+particular, programmers will have to ensure that expressions are evaluated in
+the correct environments.
+
+For example, if we wanted to implement `subset2` as a wrapper to `subset`
+instead of as a completely new function, we would use:
+
+```{r}
+subset3 <- function(x, subset, select, drop = FALSE, ...) {
+  eval(
+    bquote(
+      .(base::subset)(
+        .(x),
+        .(recsub(substitute(subset), x, parent.frame())),
+        .(recsub(substitute(select), x, parent.frame())),
+        .(drop), `...`=.(list(...))
+    ) ),
+    parent.frame()
+  )
+}
+```
+
+One limitation of `recsub` is that as with `eval` you are responsible for
+ensuring the evaluation context is correct.
 
 ## Development Status
 
