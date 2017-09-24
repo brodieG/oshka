@@ -2,5 +2,7 @@
 
 export(evalqr)
 export(evalr)
+export(get_with_env)
 export(recsub)
+export(state.data)
 importFrom(utils,tail)

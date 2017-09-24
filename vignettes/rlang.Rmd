@@ -28,11 +28,7 @@ despite this we hope you will find them adequate for pedagogical purposes.
 Our test data is derived from the `state` data that comes pre-loaded with R:
 
 ```{r}
-DF <- cbind(
-  USArrests, Divion=state.division, Region=state.region,
-  Population=state.x77[, 1]
-)
-head(DF)
+head(state.data, 2)
 ```
 
 ## An Ersatz `dplyr`
@@ -68,7 +64,7 @@ interesting parts shortly so feel free to skip:
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
-  exps.sub <- recsub(substitute(els), x, .ENV)
+  exps.sub <- recsub(substitute(els), x, parent.frame())
   if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
     exps.sub <- call("list", exps.sub)
   structure(x, .GRP=dot_list(exps.sub, "G"))
@@ -90,9 +86,11 @@ filter_r <- function(x, subset) {
 # == Helper Funs ==
 dot_list <- function(x, pre="V") {
   dots <- tail(as.list(x), -1L)
-  for(i in seq_along(dots))
-    names(dots)[i] <- if(is.language(dots[[i]])) deparse(dots[[i]])[[1]]
-      else sprintf("%s%d", pre, i)
+  if(is.null(names(dots))) names(dots) <- character(length(dots))
+  for(i in seq_along(dots)[!nzchar(names(dots))])
+    names(dots)[i] <- if(
+      is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 15
+    ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
   dots
 }
 sub_dat <- function(z, dat) {
@@ -153,13 +151,44 @@ evaluated in the parent frame, which we do on line ~15:
 
 And now for the fun:
 
+```{r}
+state.data %$%
+  filter_r(Region %in% c('Northeast', 'South')) %$%
+  group_r(Region) %$%
+  summarize_r(weighted.mean(Income, Population))
+```
+
+We can store and combine expressions:
+
+```{r}
+f.exp <- quote(Region %in% c('Northeast', 'South'))
+s.exp <- quote(weighted.mean(Income, Population))
+
+state.data %$%
+  filter_r(f.exp & Population > 1000) %$%
+  group_r(Region) %$%
+  summarize_r(round(s.exp))
+```
+
+And since `%$%` supports recursive substitutions we can even do the following:
+
+```{r}
+flt <- quote(filter_r(f.exp & Population > 1000))
+grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
+
+state.data %$% flt %$% grp.and.sum
+```
+
+The main advantage of `recusb` is you only need to quote.  The unquoting is
+handled at evaluation.
+
 ## Ersatz `data.table`
 
 For those of you unsettled by the pipe, we re-use our previous functions in a
-`data.table` semantic context:
+`data.table`-like manner:
 
 ```{r}
-`[.super_df` <- function(x, i, j, by, drop=FALSE) {
+"[.super_df" <- function(x, i, j, by, drop=FALSE) {
   frm <- parent.frame()
   i.sub <- substitute(i)
   j.sub <- substitute(j)
@@ -177,6 +206,19 @@ For those of you unsettled by the pipe, we re-use our previous functions in a
   )
   as.super_df(res.df)
 }
+as.super_df <- function(x) {
+  class(x) <- c("super_df", class(x))
+  x
+}
+```
+All we are doing is ensuring that the data and the functions are evaluated in
+the frame of `[.super_df`, and the substituted expressions in the parent frame.
+
+```{r}
+sd <- as.super_df(state.data)
+sd[f.exp, s.exp, by=Region]
+
+```
 
 ## Appendix
 
@@ -195,15 +237,12 @@ var <- quote(summarize_r(mean(height)))
 group_var <- quote(group %$% var)
 
 starwars %$% group_var
-
 ```
-
-
 
 We want to re-implement `summarize_by` function introduced in the [userR 2017
 Tidy Eval][1] session:
 
-```{r}
+```
 summarise_by <- function(df, group, var) {
   group <- enquo(group)
   var <- enquo(var)
@@ -216,7 +255,7 @@ summarise_by(starwars, species, height) %>% head(2)
 
 With `recsub` we would use:
 
-```{r}
+```
 summarise_by_r <- function(df, group, var) {
   group <- substitute(group)
   var <- substitute(var)
@@ -239,7 +278,7 @@ own NSE with internal logic to handle the quo/dequo business.
 
 With one advantage that we can do things like:
 
-```{r}
+```
 my.var <- quote(species)
 summarise_by_r(starwars, my.var, height) %>% head(2)
 summarise_by(starwars, my.var, height) %>% head(2)
@@ -248,7 +287,7 @@ summarise_by(starwars, my.var, height) %>% head(2)
 This would be even simpler if `group_by` and `summarise` had been built with
 `recsub` to begin with:
 
-```{r}
+```
 group_by_r <- function(.data, ..., add=FALSE) {
   group.call <- recsub(sys.call(), .data, parent.frame())
   group.call[[1]] <- quote(group_by)
@@ -278,27 +317,7 @@ my.var <- quote(skin_color)
 summarise_by_r2(starwars, my.var, height) %>% head(2)
 ```
 
-need a function that will look at a substituted expression and decide whether
-it needs to be wrapped in a list.  Some questions:
-
-* how can we tell if it is a list or not?  Do we force it? But maybe it can't
-  even be `evaled` under SE?
-* Maybe rule is you must explicitly use `list`?  But if you do that, you can
-  no longer pass a list as an argument?
-* What about if we `recsub`, and check for `list`?  If we want an actual list we
-  can just do `list(list())`
-* I think in this case, the only issue is that if someone interjects and object
-  `list` in the search path that isn't actually the list function, in which case
-  we would get confused.  Would have to check that the found object on search
-  path is the list we care about; I guess can just run a separate search for
-  `list` to confirm.
-* Also, right now we don't even substitute first position..., and there is the
-  complication that in R-semantics a `list` non function object can't mask the
-  base `list` object, so the rules at position one have to be different.
-* So let's start with a normal recsub
-
-
-```{r}
+```
 
 summ_by <- function(x, group, var) {
   eval(
@@ -310,31 +329,12 @@ summ_by <- function(x, group, var) {
     parent.frame()
   )
 }
-# Data set:
-
-
-
-
 
 local({
   a <- 'A'
   b <- 'B'
   y()
 })
-
-as.super_df <- function(x) {
-  class(x) <- c("super_df", class(x))
-  x
-}
-    bquote(
-      .(summarize_r_l)(
-        .(group_r_l)(
-          .(filter_r)(.(NULL), .(if(!missing(i.sub)) i.sub)),
-          .(if(!missing(by.sub)) by.sub else list())
-        ),
-        .(if(!missing(j.sub)) j.sub else list())
-    ) )
-
 starwars %$%
   filter_r(!is.na(hair_color)) %$%
   group_r(species, hair_color) %$%
@@ -360,8 +360,6 @@ local({
   exps <- list(quote(mean(var) / e1), quote(mean(var) / e2))
   lapply(exps, function(x) sw[!is.na(var), x])
 })
-
-
 my_sum <- function(.data, group, var) {
   eval(
     bquote(
@@ -374,7 +372,6 @@ my_sum <- function(.data, group, var) {
 }
 my_sum(iris, Species, Petal.Length)
 
-```{r}
 ll <- base::list
 tf <- function(data, ...) {
   expr <- substitute(ll(...))

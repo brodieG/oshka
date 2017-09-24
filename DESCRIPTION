@@ -16,6 +16,9 @@ LazyData: true
 URL: https://github.com/brodieG/recsub
 BugReports: https://github.com/brodieG/recsub/issues
 VignetteBuilder: knitr
+Imports:
+    utils,
+    datasets
 Suggests:
     knitr,
     rmarkdown,
