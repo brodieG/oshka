@@ -12,14 +12,12 @@ library(recsub)
 
 # recsub - Programmable Non-Standard Evaluation
 
-<!--
 [![](https://travis-ci.org/brodieG/recsub.svg?branch=master)](https://travis-ci.org/brodieG/recsub)
 [![](https://codecov.io/github/brodieG/recsub/coverage.svg?branch=master)](https://codecov.io/github/brodieG/recsub?branch=master)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
--->
 
-## Programmable Non-Standard Evaluation
+## Overview
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -66,36 +64,31 @@ anyone familiar with `eval` and `quote`.  Additionally, any NSE function that
 you implement using `recsub` only requires that users know `quote`, and only
 then if they intend to use the programmable NSE feature.
 
-## Philosophy and Trade-offs
+## Trade-offs
 
 Our main objective with `recsub` is a simple, R-semantic, intuitive interface to
-programmable NSE.  Simplicity comes with limits, and those manifest for the
-programmer of functions that implement this programmable NSE.  In particular,
-programmers will have to ensure that expressions are evaluated in the correct
-environments, as is the case with existing base R NSE functions.
-
-For example, if we wanted to implement `subset2` as a wrapper to `subset`
-instead of as a completely new function, we would use:
+programmable NSE.  Simplicity comes with limits, particularly for those
+that write functions that forward NSE arguments to other NSE functions.
+When doing so, the programmer will have to ensure that the NSE expressions are
+evaluated in the correct frame, typically `parent.frame`:
 
 ```{r}
-subset3 <- function(x, subset, select, drop = FALSE, ...) {
-  sub.q <- recsub(substitute(subset), x, parent.frame())
-  sel.q <- recsub(substitute(select), x, parent.frame())
-  eval(
-    bquote(
-      .(base::subset)(
-        .(x), .(sub.q), .(sel.q), .(drop), `...`=.(list(...))
-    ) ),
-    parent.frame()
-) }
+subset3 <- function(x, subset, select) {
+  frm <- parent.frame()  # as per note in ?parent.frame, need to call here
+  sub.q <- recsub(substitute(subset), x, frm)
+  sel.q <- recsub(substitute(select), x, frm)
+  eval(bquote(.(base::subset)(.(x), .(sub.q), .(sel.q))), frm)
+}
 ```
 
 We use `bquote` to construct the call to `subset`, and `.()` to make sure that
 what needs to be evaluated in the frame of our function is.  Then, we `eval` in
 the `parent.frame()` so that the substituted language computes as expected.
+Note we are doing this with a base NSE function, although we could have done the
+same with one implementing programmable NSE.
 
-This requires some thought from the author of `subset3`, but the user benefits
-from that effort:
+The reward for this effort is that the user of your function is free to combine
+language expressions:
 
 ```{r}
 col.1 <- quote(Sepal.Length)
@@ -120,7 +113,7 @@ devtools::install_github('brodieg/recsub')
 ## Related Packages
 
 [rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive, but far more complicated version of
+Wickham implements a more comprehensive, but more complicated version of
 programmable NSE.
 
 ## Acknowledgements

@@ -18,8 +18,93 @@ library(dplyr)
 library(recsub)
 ```
 
-## Nested Programmable NSE Functions
+## An Ersatz Dplyr
 
+We will implement a reduced-functionality copy of `dplyr` that supports the
+`recsub` flavor of programmable NSE.  The interface is as follows:
+
+```{r, eval=FALSE}
+group_r <- function(x, ...) {...}     # similar to dplyr::group_by
+filter_r <- function(x, subset) {...} # similar to dplyr::filter
+summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
+```
+
+`filter_r` and `group_r` are relatively simple, so we will focus on the
+implementation of `summarize_r`.  For the other functions see the appendix.
+
+```{r}
+summarize_r <- function(x, ...)
+  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+```
+
+`summarize_r` just forwards arguments to `summarize_r_l`, which does the heavy
+work.  Notice how we use `bquote(.(summarize_r_l), ...)`
+
+summarize_r_l <- function(x, els) {
+  # Handle case where passed as a list or single exp
+  exps.sub <- recsub(substitute(els), x, parent.frame())
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+
+  # compute groups and splits
+  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
+  x <- as.data.frame(x)
+  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+  splits <- lapply(grps, eval, x, parent.frame())
+  dat.split <- split(x, splits, drop=TRUE)
+  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+
+  # compute the aggregations
+  res.list <- lapply(
+    dot_list(exps.sub),
+    function(exp) lapply(dat.split, eval, expr=exp, enclos=parent.frame())
+  )
+  # Find max number of rows in each group, and recycle to that
+  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
+  res.list.r <- lapply(
+    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
+  )
+  as.data.frame(res.list.r)
+}
+```
+
+
+
+group_r <- function(x, ...)
+  eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+group_r_l <- function(x, els) {
+  exps.sub <- recsub(substitute(els), x, .ENV)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+  structure(x, .GRP=dot_list(exps.sub, "G"))
+}
+# == Summarizing ==
+
+# == Filtering ==
+filter_r <- function(x, subset) {
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  if(!is.null(sub.val))
+    as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
+}
+# == Pipe ==
+`%$%` <- function(x, y) {
+  x.sub <- recsub(substitute(x), parent.frame())
+  y.sub <- recsub(substitute(y), parent.frame())
+  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+
+  sub_dat <- function(z, dat) {
+    if(is.call(z)) {
+      if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
+      else {
+        z.list <- as.list(z)
+        z <- as.call(c(z.list[1], list(dat), tail(z.list, -1)))
+    } }
+    z
+  }
+  eval(sub_dat(y.sub, x), parent.frame())
+}
+```
 While `recsub` makes it easy to write programmable NSE functions, re-using those
 functions inside others is a little trickier.
 
