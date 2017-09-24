@@ -62,7 +62,7 @@ get_with_env <- function(symb.chr, envir, mode="any") {
           "environment ", envir
         )
       )
-      if(mode == "function" && mode(obj.val) != function) {
+      if(mode == "function" && mode(obj.val) != "function") {
         get_with_env(symb.chr, envir=parent.env(envir))
       } else list(obj=obj.val, envir=envir)
     } else get_with_env(symb.chr, envir=parent.env(envir))
@@ -70,7 +70,7 @@ get_with_env <- function(symb.chr, envir, mode="any") {
 }
 #' Recursively Substitute Symbols in Quoted Language
 #'
-#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) %in%
+#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) \\%in\\%
 #' c("expression", "language", "symbol")`) that point to quoted language objects
 #' until the resulting language object only contains symbols that point to
 #' non-language objects.  The examples are easier to understand than the prior
