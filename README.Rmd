@@ -66,35 +66,51 @@ then if they intend to use the programmable NSE feature.
 
 ## Trade-offs
 
-Our main objective with `recsub` is a simple, R-semantic, intuitive interface to
-programmable NSE.  Simplicity comes with limits, particularly for those
-that write functions that forward NSE arguments to other NSE functions.
-When doing so, the programmer will have to ensure that the NSE expressions are
-evaluated in the correct frame, typically `parent.frame`:
+Our main objective with `recsub` is a simple R-semantic interface to
+programmable NSE at the command line.  `recsub` does not simplify
+forwarding NSE arguments to other NSE functions, although that problem can be
+solved with base R methods:
 
 ```{r}
 subset3 <- function(x, subset, select) {
   frm <- parent.frame()  # as per note in ?parent.frame, need to call here
   sub.q <- recsub(substitute(subset), x, frm)
   sel.q <- recsub(substitute(select), x, frm)
-  eval(bquote(.(base::subset)(.(x), .(sub.q), .(sel.q))), frm)
+  eval(bquote(base::subset(.(x), .(sub.q), .(sel.q))), frm)
 }
 ```
 
-We use `bquote` to construct the call to `subset`, and `.()` to make sure that
-what needs to be evaluated in the frame of our function is.  Then, we `eval` in
-the `parent.frame()` so that the substituted language computes as expected.
-Note we are doing this with a base NSE function, although we could have done the
-same with one implementing programmable NSE.
-
-The reward for this effort is that the user of your function is free to combine
-language expressions:
+We use `bquote` to assemble our substituted call and `eval` and evaluate in
+the correct frame.  This requires some work from the programmer, but the user
+reaps the benefits:
 
 ```{r}
-col.1 <- quote(Sepal.Length)
+col <- quote(Sepal.Length)
 sub <- quote(Species == 'setosa')
 
-subset3(iris, sub & col.1 > 5.5, col.1:Petal.Length)
+subset3(iris, sub & col > 5.5, col:Petal.Length)
+```
+
+The expressions are unquoted and evaluated in a natural way.
+
+The forwarding should be robust to unusual evaluation:
+
+```{r}
+col <- quote(I_dont_exist)
+sub.a <- quote(stop("all hell broke loose"))
+sub.b <- quote(stop("all hell broke loose"))
+
+local({
+  col <- quote(Petal.Length)
+  sub.a <- quote(Species == 'setosa')
+  sub.b <- quote(Species == 'versicolor')
+  subs <- list(sub.a, sub.b)
+
+  lapply(
+    subs,
+    function(x) subset3(iris, x & col > 4.9, col:Petal.Length)
+  )
+})
 ```
 
 For a more thorough exploration of using `recsub` to program NSE functions see
