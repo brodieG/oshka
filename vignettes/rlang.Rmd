@@ -168,46 +168,64 @@ as.super_df <- function(x) {
   class(x) <- c("super_df", class(x))
   x
 }
-"[.super_df" <- function(x, i, j, by, drop=FALSE) {
-  frm <- parent.frame()
-  i.sub <- substitute(i)
-  j.sub <- substitute(j)
-  by.sub <- substitute(by)
-  res.df <- eval(
-    bquote(
-      .(summarize_r_l)(
-        .(group_r_l)(
-          .(filter_r)(.(x), .(if(!missing(i.sub)) i.sub)),
-          .(if(!missing(by.sub)) by.sub else quote(list()))
-        ),
-        .(if(!missing(j.sub)) j.sub else quote(list()))
-    ) ),
-    frm
-  )
-  as.super_df(res.df)
+"[.super_df" <- function(x, i=NULL, j=quote(list()), by=quote(list)) {
+  frm <- parent.frame() # as per docs, safer to do this here
+  x <- eval(bquote(.(filter_r)(     .(x),  .(substitute(i)))), frm)
+  x <- eval(bquote(.(group_r_l)(    .(x), .(substitute(by)))), frm)
+  x <- eval(bquote(.(summarize_r_l)(.(x),  .(substitute(j)))), frm)
+
+  as.super_df(x)
 }
 ```
 
-In this case we are forwarding NSE expressions (`i`, `j`, and `by`) to our NSE
-`summarize_r_l`, `group_r_l`, and `filter_r` functions.  These are the same
-functions that implement the ersatz `dplyr`.
-
-One trade off we make with `recsub` is that we do not capture the environment of
+One trade-off we make with `recsub` is that we do not capture the environment of
 the NSE expressions.  This means that when forwarding the expressions we need to
 make sure they are evaluated in the correct frame.  Here we do so by constructing
 the call with `bquote` and evaluating it in the parent frame.  Note we leave the
 functions unquoted because we want them to resolve in the environment of
 `[.super.df`, not in the parent frame.
 
-While this is a little extra work, it is implemented with the base R functions
-`sustitute`, `eval`, and `bquote`, and it is easy for the function users to use:
+While this is a little extra work, it is implemented with base R semantics, and
+it is balanced by requiring less work of the user.  In particular, the user does
+not need to worry about unquoting anything:
 
 ```{r}
 sd <- as.super_df(state.data)
 sd[f.exp, s.exp, by=Region]
+
+exp.a <- quote(max(Illiteracy))
+exp.b <- quote(min(Illiteracy))
+
+sd[f.exp, list(exp.a, exp.b), by=list(Region, has_nfl)][1:2,]
+
+exp.c <- quote(list(exp.a, exp.b))
+exp.d <- quote(list(Region, has_nfl))
+
+sd[f.exp, exp.c, by=exp.d][1:2,]
+
 ```
 
+If done correctly symbols should resolve as expected, even in more complex
+circumstances:
 
+```{r}
+exps <- quote(list(stop("boo"), stop("ya")))  # don't use this
+g.exp <- quote(State)                         # nor this
+
+local({
+  summarize_r_l <- function(x, y) stop("boom")  # nor this
+  max.inc <- quote(max(Income))                 # use this
+  min.inc <- quote(min(Income))                 # and this
+  exps <- list(max.inc, min.inc)
+
+  g.exp <- quote(Region)                        # and this
+
+  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+})
+```
+
+Since it is not completely trivial to do correctly you should test your NSE
+forwarding functions as we do here.
 
 ## Appendix
 
@@ -218,5 +236,9 @@ sd[f.exp, s.exp, by=Region]
 
 ## References
 
+[userR2017][1]
+[Tidyeval and Hygienic Fexprs][2]
+
 [1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
 [2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
+
