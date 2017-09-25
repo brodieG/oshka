@@ -60,46 +60,53 @@ summarize_r <- function(x, ...)
   eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 summarize_r_l <- function(x, els) {
   frm <- parent.frame()
-  # Handle case where passed as a list or single exp
   exps.sub <- recsub(substitute(els), x, frm)
-  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-    exps.sub <- call("list", exps.sub)
+  if(is.null(exps.sub)) x else {
+    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+      exps.sub <- call("list", exps.sub)
 
-  # compute groups and splits
-  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
-  x <- as.data.frame(x)
-  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
-  splits <- lapply(grps, eval, x, frm)
-  dat.split <- split(x, splits, drop=TRUE)
-  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+    # compute groups and splits
+    has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
+    x <- as.data.frame(x)
+    grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+    splits <- lapply(grps, eval, x, frm)
+    dat.split <- split(x, splits, drop=TRUE)
+    grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
 
-  # compute the aggregations
-  res.list <- lapply(
-    dot_list(exps.sub),       # clean up fun, see appendix for def'n
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
-  )
-  # Find max number of rows in each group, and recycle to that
-  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
-  res.list.r <- lapply(
-    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
-  )
-  as.data.frame(res.list.r)
+    # compute the aggregations
+    res.list <- lapply(
+      dot_list(exps.sub),       # clean up fun, see appendix for def'n
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+    )
+    # Find max number of rows in each group, and recycle to that
+    lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
+    res.list.r <- lapply(
+      c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
+    )
+    as.data.frame(res.list.r)
+  }
 }
 # == Grouping ===
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
   exps.sub <- recsub(substitute(els), x, parent.frame())
-  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-    exps.sub <- call("list", exps.sub)
-  structure(x, .GRP=dot_list(exps.sub, "G"))
-}
+  if(is.null(exps.sub)) x else {
+    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+      exps.sub <- call("list", exps.sub)
+    structure(x, .GRP=dot_list(exps.sub, "G"))
+} }
 # == Filtering ==
 filter_r <- function(x, subset) {
   sub.exp <- substitute(subset)
   sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
-  if(!is.null(sub.val))
-    as.data.frame(x)[!is.na(sub.val) & sub.val, ] else x
+  as.data.frame(
+    if(!is.null(sub.val)) {
+      as.data.frame(x)[
+        if(is.numeric(sub.val)) sub.val else !is.na(sub.val) & sub.val,
+      ]
+    } else x
+  )
 }
 # == Pipe ==
 `%$%` <- function(x, y) {
@@ -114,7 +121,7 @@ dot_list <- function(x, pre="V") {
   if(is.null(names(dots))) names(dots) <- character(length(dots))
   for(i in seq_along(dots)[!nzchar(names(dots))])
     names(dots)[i] <- if(
-      is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 15
+      is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 20
     ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
   dots
 }
@@ -161,14 +168,15 @@ state.data %$% flt %$% grp.and.sum
 ## Ersatz `data.table`
 
 For those of you unsettled by the pipe, we re-use our previous functions in a
-`data.table`-like manner:
+`data.table`-like manner.  Please note that we are taking many liberties here
+with our method implementation for the sake of conciseness.
 
 ```{r}
 as.super_df <- function(x) {
   class(x) <- c("super_df", class(x))
   x
 }
-"[.super_df" <- function(x, i=NULL, j=quote(list()), by=quote(list)) {
+"[.super_df" <- function(x, i=NULL, j=NULL, by=NULL) {
   frm <- parent.frame() # as per docs, safer to do this here
   x <- eval(bquote(.(filter_r)(     .(x),  .(substitute(i)))), frm)
   x <- eval(bquote(.(group_r_l)(    .(x), .(substitute(by)))), frm)
@@ -178,16 +186,12 @@ as.super_df <- function(x) {
 }
 ```
 
-One trade-off we make with `recsub` is that we do not capture the environment of
-the NSE expressions.  This means that when forwarding the expressions we need to
-make sure they are evaluated in the correct frame.  Here we do so by constructing
-the call with `bquote` and evaluating it in the parent frame.  Note we leave the
-functions unquoted because we want them to resolve in the environment of
-`[.super.df`, not in the parent frame.
+`recsub` does not solve the problem of forwarding NSE expressions to NSE
+functions so we rely on `bquote` and `eval`.  This is no different than what we
+would do with normal NSE functions, and while not ideal it is straightforward
+once one learns the pattern.
 
-While this is a little extra work, it is implemented with base R semantics, and
-it is balanced by requiring less work of the user.  In particular, the user does
-not need to worry about unquoting anything:
+The user on the other hand has an easy time of it:
 
 ```{r}
 sd <- as.super_df(state.data)
