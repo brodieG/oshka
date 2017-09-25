@@ -14,7 +14,7 @@ recsub_int <- function(lang, envir, symbols=NULL) {
           symb.as.chr, "`"
         )
 
-      lang.sub <- gets(symb.as.chr, envir=envir)
+      lang.sub <- get_with_env(symb.as.chr, envir=envir)
 
       if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
         # track all symbols detected at this env level so we can detect an
@@ -33,16 +33,19 @@ recsub_int <- function(lang, envir, symbols=NULL) {
     lang
   } else lang
 }
-## Find a symbol binding in environments
-##
-## Like `get`, except that it returns the symbol value and the environment it
-## was found in.
-##
-## @param symb.chr a character(1L) representation of symbol name
-## @return a list with the object and environment it was found in if there was
-##   one, NULL otherwise
+#' Find Symbol and Environment it is Bound in
+#'
+#' Like `get`, except that it returns the symbol value and the environment it
+#' was found in.
+#'
+#' @export
+#' @param symb.chr a character(1L) representation of symbol name
+#' @param mode "any" or "function"
+#' @return a list with the object and environment it was found in if there was
+#'   one, NULL otherwise
 
-gets <- function(symb.chr, envir) {
+get_with_env <- function(symb.chr, envir, mode="any") {
+  stopifnot(mode %in% c("any", "function"), is.environment(envir))
   if(!identical(envir, emptyenv())) {
     # checking for NULL alone is not sufficient
     ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
@@ -52,15 +55,22 @@ gets <- function(symb.chr, envir) {
       # nocov end
     }
     if(ex.try) {
-      list(obj=envir[[symb.chr]], envir=envir)
-    } else {
-      gets(symb.chr, envir=parent.env(envir))
-    }
+      obj.val <- tryCatch(
+        envir[[symb.chr]],
+        error=function(e) stop(
+          "Error evaluating promise for symbol `", symb.chr, "` in ",
+          "environment ", envir
+        )
+      )
+      if(mode == "function" && mode(obj.val) != "function") {
+        get_with_env(symb.chr, envir=parent.env(envir))
+      } else list(obj=obj.val, envir=envir)
+    } else get_with_env(symb.chr, envir=parent.env(envir))
   }
 }
 #' Recursively Substitute Symbols in Quoted Language
 #'
-#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) %in%
+#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) \\%in\\%
 #' c("expression", "language", "symbol")`) that point to quoted language objects
 #' until the resulting language object only contains symbols that point to
 #' non-language objects.  The examples are easier to understand than the prior

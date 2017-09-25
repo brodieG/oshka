@@ -16,10 +16,15 @@ LazyData: true
 URL: https://github.com/brodieG/recsub
 BugReports: https://github.com/brodieG/recsub/issues
 VignetteBuilder: knitr
+Imports:
+    utils,
+    datasets
 Suggests:
     knitr,
     rmarkdown,
     unitizer,
-    covr
-RoxygenNote: 6.0.1.9000
+    covr,
+    dplyr,
+    rlang
+RoxygenNote: 6.0.1
 Roxygen: list(markdown = TRUE)

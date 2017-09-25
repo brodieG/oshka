@@ -1,7 +1,9 @@
 #' Evaluate Expression After Recursively Substituting It
 #'
 #' Calls [recsub] on the inputs, and then evaluates the result with [eval].
-#' This allows us to implement programmable NSE in functions.
+#' This allows us to implement programmable NSE in functions.  `evalqr`
+#' substitutes the expression before calling [recsub] and evaluating it, similar
+#' to [evalq].
 #'
 #' @seealso [eval], [recsub], `vignette('recsub', 'recsub')`
 #' @export
@@ -17,6 +19,7 @@
 #' bbb <- quote(xzw < 10)
 #'
 #' evalr(quote(xzw[aaa & bbb]))
+#' evalqr(xzw[aaa & bbb])
 #'
 #' ## Add an interceding frame; here we want to ensure that the
 #' ## variable used is the one in the data.frame, not the one we
@@ -24,8 +27,8 @@
 #' DF <- data.frame(xzw=5:7, yac=letters[1:3], stringsAsFactors=FALSE)
 #' DF$xzw    # use this one
 #' xzw       # not this one
-#' evalr(quote(DF[aaa & bbb, ,drop=FALSE]))            # incorrect
-#' evalr(quote(DF[aaa & bbb, ,drop=FALSE]), envir=DF)  # correct
+#' evalqr(DF[aaa & bbb, ,drop=FALSE])            # incorrect
+#' evalqr(DF[aaa & bbb, ,drop=FALSE], envir=DF)  # correct
 #'
 #' ## Implement programmable NSE in a function; use `substitute` to capture
 #' ## input unevaluated
@@ -44,4 +47,15 @@ evalr <- function(
 ) {
   envir.proc <- env_resolve(envir, enclos, internal=TRUE)
   eval(recsub(expr, envir=envir.proc), envir=envir.proc)
+}
+
+#' @export
+#' @rdname evalr
+
+evalqr <- function(
+  expr, envir=parent.frame(),
+  enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv()
+) {
+  envir.proc <- env_resolve(envir, enclos, internal=TRUE)
+  eval(recsub(substitute(expr), envir=envir.proc), envir=envir.proc)
 }

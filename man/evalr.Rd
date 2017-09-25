@@ -2,9 +2,13 @@
 % Please edit documentation in R/eval.R
 \name{evalr}
 \alias{evalr}
+\alias{evalqr}
 \title{Evaluate Expression After Recursively Substituting It}
 \usage{
 evalr(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
+  is.pairlist(envir)) parent.frame() else baseenv())
+
+evalqr(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
 \arguments{
@@ -27,7 +31,9 @@ the result of evaluating the last element.
 }
 \description{
 Calls \link{recsub} on the inputs, and then evaluates the result with \link{eval}.
-This allows us to implement programmable NSE in functions.
+This allows us to implement programmable NSE in functions.  \code{evalqr}
+substitutes the expression before calling \link{recsub} and evaluating it, similar
+to \link{evalq}.
 }
 \examples{
 xzw <- 8:10
@@ -35,6 +41,7 @@ aaa <- quote(xzw > 5)
 bbb <- quote(xzw < 10)
 
 evalr(quote(xzw[aaa & bbb]))
+evalqr(xzw[aaa & bbb])
 
 ## Add an interceding frame; here we want to ensure that the
 ## variable used is the one in the data.frame, not the one we
@@ -42,8 +49,8 @@ evalr(quote(xzw[aaa & bbb]))
 DF <- data.frame(xzw=5:7, yac=letters[1:3], stringsAsFactors=FALSE)
 DF$xzw    # use this one
 xzw       # not this one
-evalr(quote(DF[aaa & bbb, ,drop=FALSE]))            # incorrect
-evalr(quote(DF[aaa & bbb, ,drop=FALSE]), envir=DF)  # correct
+evalqr(DF[aaa & bbb, ,drop=FALSE])            # incorrect
+evalqr(DF[aaa & bbb, ,drop=FALSE], envir=DF)  # correct
 
 ## Implement programmable NSE in a function; use `substitute` to capture
 ## input unevaluated

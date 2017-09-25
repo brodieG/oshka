@@ -26,7 +26,7 @@ If the input is a language object, that object with all symbols
 recursively substituted, otherwise the input unchanged.
 }
 \description{
-Recursively substitutes symbols in quoted language (i.e. \code{typeof(x) \%in\% c("expression", "language", "symbol")}) that point to quoted language objects
+Recursively substitutes symbols in quoted language (i.e. \code{typeof(x) \\\%in\\\% c("expression", "language", "symbol")}) that point to quoted language objects
 until the resulting language object only contains symbols that point to
 non-language objects.  The examples are easier to understand than the prior
 sentence, so you are encouraged to look at those.

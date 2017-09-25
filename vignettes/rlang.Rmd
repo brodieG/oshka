@@ -1,0 +1,248 @@
+---
+title: "Comparison of Programmable NSE Frameworks"
+author: "Brodie Gaslam"
+output:
+    rmarkdown::html_vignette:
+        toc: true
+        css: styles.css
+
+vignette: >
+  %\VignetteIndexEntry{vetr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(dplyr)
+library(recsub)
+```
+
+## `recsub` in Action
+
+We will implement simplified versions of `dplyr` and `data.table` to illustrate
+how one could use `recsub` to develop programmable NSE functions.  The
+implementations will be limited in functionality, robustness, and speed, but
+despite this we hope you will find them adequate for pedagogical purposes.
+
+Our test data is derived from the `state` data that comes pre-loaded with R:
+
+```{r}
+head(state.data, 2)
+```
+
+## An Ersatz `dplyr`
+
+The interface is as follows:
+
+```{r, eval=FALSE}
+group_r <- function(x, ...) {...}     # similar to dplyr::group_by
+filter_r <- function(x, subset) {...} # similar to dplyr::filter
+summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
+`%$%` <- function(x, y) {...}         # similar to the magrittr pipe
+```
+
+The ~70 line implementation is in the appendix, but most of that code is
+simply logic required with this or any other NSE framework.  The only `recsub`
+specific lines look something like:
+
+```{r, eval=FALSE}
+exps.sub <- recsub(substitute(list(...)), x, frm)
+```
+
+`x` is the data frame, and `frm` the parent frame.  `exps.sub` can then
+evaluated with `eval` in the data frame groups with the parent frame as the
+enclosure.
+
+```{r dplyr_extra, echo=FALSE}
+# == Summary ==
+summarize_r <- function(x, ...)
+  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+summarize_r_l <- function(x, els) {
+  frm <- parent.frame()
+  exps.sub <- recsub(substitute(els), x, frm)
+  if(is.null(exps.sub)) x else {
+    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+      exps.sub <- call("list", exps.sub)
+
+    # compute groups and splits
+    has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
+    x <- as.data.frame(x)
+    grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+    splits <- lapply(grps, eval, x, frm)
+    dat.split <- split(x, splits, drop=TRUE)
+    grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+
+    # compute the aggregations
+    res.list <- lapply(
+      dot_list(exps.sub),       # clean up fun, see appendix for def'n
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+    )
+    # Find max number of rows in each group, and recycle to that
+    lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
+    res.list.r <- lapply(
+      c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
+    )
+    as.data.frame(res.list.r)
+  }
+}
+# == Grouping ===
+group_r <- function(x, ...)
+  eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+group_r_l <- function(x, els) {
+  exps.sub <- recsub(substitute(els), x, parent.frame())
+  if(is.null(exps.sub)) x else {
+    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+      exps.sub <- call("list", exps.sub)
+    structure(x, .GRP=dot_list(exps.sub, "G"))
+} }
+# == Filtering ==
+filter_r <- function(x, subset) {
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  as.data.frame(
+    if(!is.null(sub.val)) {
+      as.data.frame(x)[
+        if(is.numeric(sub.val)) sub.val else !is.na(sub.val) & sub.val,
+      ]
+    } else x
+  )
+}
+# == Pipe ==
+`%$%` <- function(x, y) {
+  x.sub <- recsub(substitute(x), parent.frame())
+  y.sub <- recsub(substitute(y), parent.frame())
+  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+  eval(sub_dat(y.sub, x), parent.frame())
+}
+# == Helper Funs ==
+dot_list <- function(x, pre="V") {
+  dots <- tail(as.list(x), -1L)
+  if(is.null(names(dots))) names(dots) <- character(length(dots))
+  for(i in seq_along(dots)[!nzchar(names(dots))])
+    names(dots)[i] <- if(
+      is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 20
+    ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
+  dots
+}
+sub_dat <- function(z, dat) {
+  if(is.call(z)) {
+    if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
+    else {
+      z.list <- as.list(z)
+      z <- as.call(c(z.list[1], list(dat), tail(z.list, -1)))
+  } }
+  z
+}
+```
+And now for the fun:
+
+```{r}
+state.data %$%
+  filter_r(Region %in% c('Northeast', 'South')) %$%
+  group_r(Region) %$%
+  summarize_r(weighted.mean(Income, Population))
+```
+
+We can store and combine expressions:
+
+```{r}
+f.exp <- quote(Region %in% c('Northeast', 'South'))
+s.exp <- quote(weighted.mean(Income, Population))
+
+state.data %$%
+  filter_r(f.exp & Population > 1000) %$%
+  group_r(Region) %$%
+  summarize_r(round(s.exp))
+```
+
+And since `%$%` supports recursive substitutions we can even do the following:
+
+```{r}
+flt <- quote(filter_r(f.exp & Population > 1000))
+grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
+
+state.data %$% flt %$% grp.and.sum
+```
+
+## Ersatz `data.table`
+
+For those of you unsettled by the pipe, we re-use our previous functions in a
+`data.table`-like manner.  Please note that we are taking many liberties here
+with our method implementation for the sake of conciseness.
+
+```{r}
+as.super_df <- function(x) {
+  class(x) <- c("super_df", class(x))
+  x
+}
+"[.super_df" <- function(x, i=NULL, j=NULL, by=NULL) {
+  frm <- parent.frame() # as per docs, safer to do this here
+  x <- eval(bquote(.(filter_r)(     .(x),  .(substitute(i)))), frm)
+  x <- eval(bquote(.(group_r_l)(    .(x), .(substitute(by)))), frm)
+  x <- eval(bquote(.(summarize_r_l)(.(x),  .(substitute(j)))), frm)
+
+  as.super_df(x)
+}
+```
+
+`recsub` does not solve the problem of forwarding NSE expressions to NSE
+functions so we rely on `bquote` and `eval`.  This is no different than what we
+would do with normal NSE functions, and while not ideal it is straightforward
+once one learns the pattern.
+
+The user on the other hand has an easy time of it:
+
+```{r}
+sd <- as.super_df(state.data)
+sd[f.exp, s.exp, by=Region]
+
+exp.a <- quote(max(Illiteracy))
+exp.b <- quote(min(Illiteracy))
+
+sd[f.exp, list(exp.a, exp.b), by=list(Region, has_nfl)][1:2,]
+
+exp.c <- quote(list(exp.a, exp.b))
+exp.d <- quote(list(Region, has_nfl))
+
+sd[f.exp, exp.c, by=exp.d][1:2,]
+
+```
+
+If done correctly symbols should resolve as expected, even in more complex
+circumstances:
+
+```{r}
+exps <- quote(list(stop("boo"), stop("ya")))  # don't use this
+g.exp <- quote(State)                         # nor this
+
+local({
+  summarize_r_l <- function(x, y) stop("boom")  # nor this
+  max.inc <- quote(max(Income))                 # use this
+  min.inc <- quote(min(Income))                 # and this
+  exps <- list(max.inc, min.inc)
+
+  g.exp <- quote(Region)                        # and this
+
+  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+})
+```
+
+Since it is not completely trivial to do correctly you should test your NSE
+forwarding functions as we do here.
+
+## Appendix
+
+### Ersatz `dplyr` Functions
+
+```{r dplyr_extra, eval=FALSE}
+```
+
+## References
+
+[userR2017][1]
+[Tidyeval and Hygienic Fexprs][2]
+
+[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
+[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
+
