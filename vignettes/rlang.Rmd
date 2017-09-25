@@ -42,24 +42,49 @@ summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
 `%$%` <- function(x, y) {...}         # similar to the magrittr pipe
 ```
 
-`filter_r` and `group_r` are relatively simple, so we will focus on the
-implementation of `summarize_r`.  For the other functions see the appendix.
+The ~70 line implementation is in the appendix, but most of that code is
+simply logic required with this or any other NSE framework.  The only `recsub`
+specific lines look something like:
 
-```{r}
-summarize_r <- function(x, ...)
-  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+```{r, eval=FALSE}
+exps.sub <- recsub(substitute(list(...)), x, frm)
 ```
 
-`summarize_r` just forwards arguments to `summarize_r_l`.  Notice how we use
-`bquote(.(summarize_r_l), ...)` so that `summarize_r_l` is evaluated in the
-function frame.  This ensures the symbol resolves in the environment chain of
-the function (e.g. in the package namespace if there was one).  The dots instead
-are evaluated in the parent frame.
-
-Here is `summarize_r_l`, mostly for reference.  We will highlight the
-interesting parts shortly so feel free to skip:
+`x` is the data frame, and `frm` the parent frame.  `exps.sub` can then
+evaluated with `eval` in the data frame groups with the parent frame as the
+enclosure.
 
 ```{r dplyr_extra, echo=FALSE}
+# == Summary ==
+summarize_r <- function(x, ...)
+  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+summarize_r_l <- function(x, els) {
+  frm <- parent.frame()
+  # Handle case where passed as a list or single exp
+  exps.sub <- recsub(substitute(els), x, frm)
+  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+    exps.sub <- call("list", exps.sub)
+
+  # compute groups and splits
+  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
+  x <- as.data.frame(x)
+  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+  splits <- lapply(grps, eval, x, frm)
+  dat.split <- split(x, splits, drop=TRUE)
+  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+
+  # compute the aggregations
+  res.list <- lapply(
+    dot_list(exps.sub),       # clean up fun, see appendix for def'n
+    function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+  )
+  # Find max number of rows in each group, and recycle to that
+  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
+  res.list.r <- lapply(
+    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
+  )
+  as.data.frame(res.list.r)
+}
 # == Grouping ===
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
@@ -103,52 +128,6 @@ sub_dat <- function(z, dat) {
   z
 }
 ```
-```{r}
-summarize_r_l <- function(x, els) {
-  frm <- parent.frame()
-  # Handle case where passed as a list or single exp
-  exps.sub <- recsub(substitute(els), x, frm)
-  if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-    exps.sub <- call("list", exps.sub)
-
-  # compute groups and splits
-  has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
-  x <- as.data.frame(x)
-  grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
-  splits <- lapply(grps, eval, x, frm)
-  dat.split <- split(x, splits, drop=TRUE)
-  grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
-
-  # compute the aggregations
-  res.list <- lapply(
-    dot_list(exps.sub),       # clean up fun, see appendix for def'n
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
-  )
-  # Find max number of rows in each group, and recycle to that
-  lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
-  res.list.r <- lapply(
-    c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
-  )
-  as.data.frame(res.list.r)
-}
-```
-
-The only `recsub` specific line is the second one:
-
-```{r, eval=FALSE}
-  exps.sub <- recsub(substitute(els), x, frm)
-```
-
-This recursively expands the expression in a form that can be correctly
-evaluated in the parent frame, which we do on line ~15:
-
-```{r, eval=FALSE}
-  res.list <- lapply(
-    dot_list(exps.sub),       # clean up fun, see appendix for def'n
-    function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
-  )
-```
-
 And now for the fun:
 
 ```{r}
@@ -179,15 +158,16 @@ grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
 state.data %$% flt %$% grp.and.sum
 ```
 
-The main advantage of `recusb` is you only need to quote.  The unquoting is
-handled at evaluation.
-
 ## Ersatz `data.table`
 
 For those of you unsettled by the pipe, we re-use our previous functions in a
 `data.table`-like manner:
 
 ```{r}
+as.super_df <- function(x) {
+  class(x) <- c("super_df", class(x))
+  x
+}
 "[.super_df" <- function(x, i, j, by, drop=FALSE) {
   frm <- parent.frame()
   i.sub <- substitute(i)
@@ -206,19 +186,28 @@ For those of you unsettled by the pipe, we re-use our previous functions in a
   )
   as.super_df(res.df)
 }
-as.super_df <- function(x) {
-  class(x) <- c("super_df", class(x))
-  x
-}
 ```
-All we are doing is ensuring that the data and the functions are evaluated in
-the frame of `[.super_df`, and the substituted expressions in the parent frame.
+
+In this case we are forwarding NSE expressions (`i`, `j`, and `by`) to our NSE
+`summarize_r_l`, `group_r_l`, and `filter_r` functions.  These are the same
+functions that implement the ersatz `dplyr`.
+
+One trade off we make with `recsub` is that we do not capture the environment of
+the NSE expressions.  This means that when forwarding the expressions we need to
+make sure they are evaluated in the correct frame.  Here we do so by constructing
+the call with `bquote` and evaluating it in the parent frame.  Note we leave the
+functions unquoted because we want them to resolve in the environment of
+`[.super.df`, not in the parent frame.
+
+While this is a little extra work, it is implemented with the base R functions
+`sustitute`, `eval`, and `bquote`, and it is easy for the function users to use:
 
 ```{r}
 sd <- as.super_df(state.data)
 sd[f.exp, s.exp, by=Region]
-
 ```
+
+
 
 ## Appendix
 
@@ -226,160 +215,6 @@ sd[f.exp, s.exp, by=Region]
 
 ```{r dplyr_extra, eval=FALSE}
 ```
-
-###
-
-
-```
-summ_by <- quote(group_by_r(group) %$% summarize_r(var))
-group <- quote(group_r(species))
-var <- quote(summarize_r(mean(height)))
-group_var <- quote(group %$% var)
-
-starwars %$% group_var
-```
-
-We want to re-implement `summarize_by` function introduced in the [userR 2017
-Tidy Eval][1] session:
-
-```
-summarise_by <- function(df, group, var) {
-  group <- enquo(group)
-  var <- enquo(var)
-  df %>%
-    group_by(!! group) %>%
-    summarise(avg = mean(!! var))
-}
-summarise_by(starwars, species, height) %>% head(2)
-```
-
-With `recsub` we would use:
-
-```
-summarise_by_r <- function(df, group, var) {
-  group <- substitute(group)
-  var <- substitute(var)
-  expr <- recsub(
-    bquote(
-      .(df) %>%
-      group_by(.(group)) %>%
-      summarise(avg = mean(.(var)))
-    ),
-    df, parent.frame()
-  )
-  eval(expr, parent.frame())
-}
-summarise_by_r(starwars, species, height) %>% head(2)
-```
-
-While this looks a lot more complicated, keep in mind we just added programmable
-NSE to something that has no idea `recsub` even exists.  `dplyr` implements its
-own NSE with internal logic to handle the quo/dequo business.
-
-With one advantage that we can do things like:
-
-```
-my.var <- quote(species)
-summarise_by_r(starwars, my.var, height) %>% head(2)
-summarise_by(starwars, my.var, height) %>% head(2)
-```
-
-This would be even simpler if `group_by` and `summarise` had been built with
-`recsub` to begin with:
-
-```
-group_by_r <- function(.data, ..., add=FALSE) {
-  group.call <- recsub(sys.call(), .data, parent.frame())
-  group.call[[1]] <- quote(group_by)
-  eval(group.call, parent.frame())
-}
-summarise_r <- function(.data, ..., add=FALSE) {
-  summarise.call <- recsub(sys.call(), .data, parent.frame())
-  summarise.call[[1]] <- quote(summarise)
-  eval(summarise.call, parent.frame())
-}
-summarise_by_r2 <- function(df, group, var) {
-  group <- substitute(group)
-  var <- substitute(var)
-  eval(
-    bquote(.(df) %>% group_by_r(.(group)) %>% summarise_r(avg=mean(.(var)))),
-    parent.frame()
-  )
-}
-summarise_by_r2(starwars, species, height) %>% head(2)
-summarise_by_r2(starwars, my.var, height) %>% head(2)
-
-local({
-  my.var <- quote(skin_color)
-  summarise_by_r2(starwars, my.var, height) %>% head(2)
-})
-my.var <- quote(skin_color)
-summarise_by_r2(starwars, my.var, height) %>% head(2)
-```
-
-```
-
-summ_by <- function(x, group, var) {
-  eval(
-    bquote(
-      .(summarize_r_l)(
-        .(group_r_l)(.(x), .(substitute(group))),
-        mean(.(substitute(var)))
-    ) ),
-    parent.frame()
-  )
-}
-
-local({
-  a <- 'A'
-  b <- 'B'
-  y()
-})
-starwars %$%
-  filter_r(!is.na(hair_color)) %$%
-  group_r(species, hair_color) %$%
-  summarize_r(median(height), mean(mass))
-
-sw <- as.super_df(starwars)
-sw[, list(mean(height), max(mass)), list(species, hair_color)]
-
-my.j <- quote(list(mean(height), max(mass)))
-sw[, my.j, list(species, hair_color)]
-
-sw[, mean(height), species]
-sw[, mean(height, na.rm=T)]
-
-my.grp.var <- quote(species)
-
-var <- NA
-local({
-  hello <- "hello"
-  var <- quote(height)
-  e1 <- quote(max(var))
-  e2 <- quote(min(var))
-  exps <- list(quote(mean(var) / e1), quote(mean(var) / e2))
-  lapply(exps, function(x) sw[!is.na(var), x])
-})
-my_sum <- function(.data, group, var) {
-  eval(
-    bquote(
-      .(.data) %>%
-        grp_by(.(substitute(group))) %>%
-        summr(sum(.(substitute(var))), mean(.(substitute(var))))
-    ),
-    parent.frame()
-  )
-}
-my_sum(iris, Species, Petal.Length)
-
-ll <- base::list
-tf <- function(data, ...) {
-  expr <- substitute(ll(...))
-  vals <- eval(expr, data, parent.frame())
-  vals
-}
-```
-
 
 ## References
 
