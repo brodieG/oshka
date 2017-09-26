@@ -1,0 +1,23 @@
+---
+title: "Programmable Non-Standard Evaluation"
+author: "Brodie Gaslam"
+output:
+    rmarkdown::html_vignette:
+        toc: false
+        css: styles.css
+
+vignette: >
+  %\VignetteIndexEntry{vetr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(recsub)
+```
+
+```{r child='./rmdhunks/intro.Rmd'}
+```
+
+The end.
