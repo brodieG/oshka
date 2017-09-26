@@ -1,0 +1,95 @@
+## Basic Programmable NSE
+
+Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
+captured and evaluated in a manner different than if they had been executed
+without intervention.  `subset` is a canonical example:
+
+```{r}
+subset(iris, Sepal.Width > 4.1)
+```
+
+`Sepal.Width` does not exist in the global environment, yet this works because
+`subset` captures the expression and evaluates it within `iris`.
+
+A limitation of NSE is that it is difficult to use programmatically:
+
+```{r}
+my.exp.a <- quote(Sepal.Width > 4.1)
+subset(iris, my.exp.a)
+```
+
+`recsub` facilitates programmable NSE, as with this simplified version of
+`subset`:
+
+```{r}
+subset2 <- function(x, subset) {
+  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.val <- eval(sub.exp, x, parent.frame())
+  x[!is.na(sub.val) & sub.val, ]
+}
+subset2(iris, my.exp.a)
+```
+
+`recsub` is recursive:
+
+```{r}
+my.exp.b <- quote(Species == 'virginica')
+my.exp.c <- quote(Sepal.Width > 3.6)
+my.exp.d <- quote(my.exp.b & my.exp.c)
+
+subset2(iris, my.exp.d)
+```
+
+We abide by R semantics so that programmable NSE functions are almost
+identical to normal NSE functions.  Using it them is the same, with
+programmability as a bonus.  Recursive language substitution follows the
+same semantics as normal object substitution.
+
+## Forwarding NSE Arguments to NSE Functions
+
+If you wish to write a function that uses a programmable NSE function and
+forwards its NSE arguments to it, you must ensure the NSE expressions are
+evaluated in the correct environment, typically the `parent.frame()`.  This is
+no different than with normal NSE functions.  An example:
+
+```{r}
+subset3 <- function(x, subset, select, drop=FALSE) {
+  frm <- parent.frame()  # as per note in ?parent.frame, better to call here
+  sub.q <- recsub(substitute(subset), x, frm)
+  sel.q <- recsub(substitute(select), x, frm)
+  eval(bquote(base::subset(.(x), .(sub.q), .(sel.q), drop=.(drop))), frm)
+}
+```
+
+We use `bquote` to assemble our substituted call and `eval` to evaluate it in
+the correct frame.  The parts of the call that should evaluate in `subset3` are
+escaped with `.()`.  This requires some work from the programmer, but the user
+reaps the benefits:
+
+```{r}
+col <- quote(Sepal.Length)
+sub <- quote(Species == 'setosa')
+
+subset3(iris, sub & col > 5.5, col:Petal.Length)
+```
+
+The forwarding is robust to unusual evaluation:
+
+```{r}
+col.a <- quote(I_dont_exist)
+col.b <- quote(Sepal.Length)
+sub.a <- quote(stop("all hell broke loose"))
+sub.b <- quote(stop("all hell broke loose"))
+threshold <- 3.35
+
+local({
+  col.a <- quote(Sepal.Width)
+  sub.a <- quote(Species == 'virginica')
+  subs <- list(sub.a, quote(Species == 'versicolor'))
+
+  lapply(
+    subs,
+    function(x) subset3(iris, x & col.a > threshold, col.b:Petal.Length)
+  )
+})
+```

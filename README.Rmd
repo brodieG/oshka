@@ -17,104 +17,27 @@ library(recsub)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-## Overview
-
-Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
-captured and evaluated in a manner different than if they had been executed
-without intervention.  `subset` is a canonical example:
-
-```{r}
-subset(iris, Sepal.Width > 4.1)
+```{r child='vignettes/rmdhunks/intro.Rmd'}
 ```
 
-`Sepal.Width` does not exist in the global environment, yet this works because
-`subset` captures the expression and evaluates it within `iris`.
+## Related Packages
 
-A limitation of NSE is that it is difficult to use programmatically:
-
-```{r}
-my.exp.0 <- quote(Sepal.Width > 4.1)
-subset(iris, my.exp)
-```
-
-`recsub` provides tools to write functions that support programmable NSE, such
-as this simplified version of `subset`:
-
-```{r}
-subset2 <- function(x, subset) {
-  sub.exp <- substitute(subset)
-  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
-  x[!is.na(sub.val) & sub.val, ]
-}
-subset2(iris, my.exp.0)
-```
-
-We recursively substitute R language objects, so you combine expressions:
-
-```{r}
-my.exp.1 <- quote(Species == 'virginica')
-my.exp.2 <- quote(Sepal.Width > 3.6)
-my.exp.3 <- quote(my.exp.1 & my.exp.2)
-
-subset2(iris, my.exp.3)
-```
-
-`recsub` abides by R semantics as much as possible so it should be intuitive to
-anyone familiar with `eval` and `quote`.  Additionally, any NSE function that
-you implement using `recsub` only requires that users know `quote`, and only
-then if they intend to use the programmable NSE feature.
-
-## Trade-offs
-
-Our main objective with `recsub` is a simple, R-semantic, intuitive interface to
-programmable NSE.  Simplicity comes with limits, particularly for those
-that write functions that forward NSE arguments to other NSE functions.
-When doing so, the programmer will have to ensure that the NSE expressions are
-evaluated in the correct frame, typically `parent.frame`:
-
-```{r}
-subset3 <- function(x, subset, select) {
-  frm <- parent.frame()  # as per note in ?parent.frame, need to call here
-  sub.q <- recsub(substitute(subset), x, frm)
-  sel.q <- recsub(substitute(select), x, frm)
-  eval(bquote(.(base::subset)(.(x), .(sub.q), .(sel.q))), frm)
-}
-```
-
-We use `bquote` to construct the call to `subset`, and `.()` to make sure that
-what needs to be evaluated in the frame of our function is.  Then, we `eval` in
-the `parent.frame()` so that the substituted language computes as expected.
-Note we are doing this with a base NSE function, although we could have done the
-same with one implementing programmable NSE.
-
-The reward for this effort is that the user of your function is free to combine
-language expressions:
-
-```{r}
-col.1 <- quote(Sepal.Length)
-sub <- quote(Species == 'setosa')
-
-subset3(iris, sub & col.1 > 5.5, col.1:Petal.Length)
-```
-
-For a more thorough exploration of using `recsub` to program NSE functions see
-the vignette.
+[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
+Wickham implements a more comprehensive version of programmable NSE.  In
+particular it captures NSE expression environments, which among other
+thing simplifies the NSE expression forwarding problem.  On the other hand, it
+is substantially more complex.
 
 ## Development Status
 
-This package is proof-of-concept.  Feedback is welcome.
+This package is proof-of-concept.  Feedback is welcome, particularly if you are
+aware of some NSE pitfalls we may be ignoring.
 
 Currently this package is only available on github:
 
 ```{r eval=FALSE}
 devtools::install_github('brodieg/recsub')
 ```
-
-## Related Packages
-
-[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive, but more complicated version of
-programmable NSE.
 
 ## Acknowledgements
 

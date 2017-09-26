@@ -9,7 +9,8 @@
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-## Overview
+
+## Basic Programmable NSE
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -30,63 +31,125 @@ A limitation of NSE is that it is difficult to use programmatically:
 
 
 ```r
-my.exp <- quote(Sepal.Width > 4.1)
-subset(iris, my.exp)
-## Error in subset.data.frame(iris, my.exp): 'subset' must be logical
+my.exp.a <- quote(Sepal.Width > 4.1)
+subset(iris, my.exp.a)
+## Error in subset.data.frame(iris, my.exp.a): 'subset' must be logical
 ```
 
-Instead, we would have to resort to the following contortion:
-
-
-```r
-eval(bquote(subset(iris, .(my.exp))))
-##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
-## 16          5.7         4.4          1.5         0.4  setosa
-## 34          5.5         4.2          1.4         0.2  setosa
-```
-
-`recsub` provides tools to write functions that support programmable NSE, such
-as this simplified version of `subset`:
+`recsub` facilitates programmable NSE, as with this simplified version of
+`subset`:
 
 
 ```r
 subset2 <- function(x, subset) {
-  sub.val <- evalr(substitute(subset), envir=x, enclos=parent.frame())
+  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.val <- eval(sub.exp, x, parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
-subset2(iris, my.exp)
+subset2(iris, my.exp.a)
 ##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
 ## 16          5.7         4.4          1.5         0.4  setosa
 ## 34          5.5         4.2          1.4         0.2  setosa
 ```
 
-While this may not seem like much of an improvement to the poor sod writing
-`subset2`, it does make it easy to program with.  Additionally, because `evalr`
-substitutes language recursively, the following is possible:
+`recsub` is recursive:
 
 
 ```r
-my.exp.1 <- quote(Species == 'virginica')
-my.exp.2 <- quote(Sepal.Width > 3.6)
-my.exp.3 <- quote(my.exp.1 & my.exp.2)
+my.exp.b <- quote(Species == 'virginica')
+my.exp.c <- quote(Sepal.Width > 3.6)
+my.exp.d <- quote(my.exp.b & my.exp.c)
 
-subset2(iris, my.exp.3)
+subset2(iris, my.exp.d)
 ##     Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
 ## 118          7.7         3.8          6.7         2.2 virginica
 ## 132          7.9         3.8          6.4         2.0 virginica
 ```
 
-`recsub` sacrifices power for simplicity.  For example, the developer must
-manage the evaluation environment, but in exchange they get semantics that are
-identical to those of `eval`.  Users of functions that implement programmable
-NSE with `recsub` must learn to use `quote` and nothing else, and then only if
-they want to program with NSE.  The semantics of recursive substitution follow
-those of standard evaluation of non-language R objects.
+We abide by R semantics so that programmable NSE functions are almost
+identical to normal NSE functions.  Using it them is the same, with
+programmability as a bonus.  Recursive language substitution follows the
+same semantics as normal object substitution.
+
+## Forwarding NSE Arguments to NSE Functions
+
+If you wish to write a function that uses a programmable NSE function and
+forwards its NSE arguments to it, you must ensure the NSE expressions are
+evaluated in the correct environment, typically the `parent.frame()`.  This is
+no different than with normal NSE functions.  An example:
+
+
+```r
+subset3 <- function(x, subset, select, drop=FALSE) {
+  frm <- parent.frame()  # as per note in ?parent.frame, better to call here
+  sub.q <- recsub(substitute(subset), x, frm)
+  sel.q <- recsub(substitute(select), x, frm)
+  eval(bquote(base::subset(.(x), .(sub.q), .(sel.q), drop=.(drop))), frm)
+}
+```
+
+We use `bquote` to assemble our substituted call and `eval` to evaluate it in
+the correct frame.  The parts of the call that should evaluate in `subset3` are
+escaped with `.()`.  This requires some work from the programmer, but the user
+reaps the benefits:
+
+
+```r
+col <- quote(Sepal.Length)
+sub <- quote(Species == 'setosa')
+
+subset3(iris, sub & col > 5.5, col:Petal.Length)
+##    Sepal.Length Sepal.Width Petal.Length
+## 15          5.8         4.0          1.2
+## 16          5.7         4.4          1.5
+## 19          5.7         3.8          1.7
+```
+
+The forwarding is robust to unusual evaluation:
+
+
+```r
+col.a <- quote(I_dont_exist)
+col.b <- quote(Sepal.Length)
+sub.a <- quote(stop("all hell broke loose"))
+sub.b <- quote(stop("all hell broke loose"))
+threshold <- 3.35
+
+local({
+  col.a <- quote(Sepal.Width)
+  sub.a <- quote(Species == 'virginica')
+  subs <- list(sub.a, quote(Species == 'versicolor'))
+
+  lapply(
+    subs,
+    function(x) subset3(iris, x & col.a > threshold, col.b:Petal.Length)
+  )
+})
+## [[1]]
+##     Sepal.Length Sepal.Width Petal.Length
+## 110          7.2         3.6          6.1
+## 118          7.7         3.8          6.7
+## 132          7.9         3.8          6.4
+## 137          6.3         3.4          5.6
+## 149          6.2         3.4          5.4
+## 
+## [[2]]
+##    Sepal.Length Sepal.Width Petal.Length
+## 86            6         3.4          4.5
+```
+
+## Related Packages
+
+[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
+Wickham implements a more comprehensive version of programmable NSE.  In
+particular it captures NSE expression environments, which among other
+thing simplifies the NSE expression forwarding problem.  On the other hand, it
+is substantially more complex.
 
 ## Development Status
 
-This package is proof-of-concept.  Whether it leaves that state will depend on
-how much interest it elicits.
+This package is proof-of-concept.  Feedback is welcome, particularly if you are
+aware of some NSE pitfalls we may be ignoring.
 
 Currently this package is only available on github:
 
@@ -94,12 +157,6 @@ Currently this package is only available on github:
 ```r
 devtools::install_github('brodieg/recsub')
 ```
-
-## Related Packages
-
-[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive, but far more complicated version of
-programmable NSE.
 
 ## Acknowledgements
 
