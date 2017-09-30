@@ -14,7 +14,6 @@ vignette: >
 
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(dplyr)
 library(recsub)
 ```
 
@@ -42,51 +41,63 @@ summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
 `%$%` <- function(x, y) {...}         # similar to the magrittr pipe
 ```
 
-The ~70 line implementation is in the appendix, but most of that code is
-simply logic required with this or any other NSE framework.  The only `recsub`
-specific lines look something like:
+Most of the implementation is not directly related to NSE, but we will go over
+`summarize_r` to highlight the NSE bits.  `summarize_r` is actually just a
+forwarding function:
 
-```{r, eval=FALSE}
-exps.sub <- recsub(substitute(list(...)), x, frm)
-```
-
-`x` is the data frame, and `frm` the parent frame.  `exps.sub` can then
-evaluated with `eval` in the data frame groups with the parent frame as the
-enclosure.
-
-```{r dplyr_extra, echo=FALSE}
-# == Summary ==
+```{r dplyr_extra_0}
 summarize_r <- function(x, ...)
   eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+```
+
+This uses the `eval`/`bquote` pattern to forward the `NSE` arguments to the
+function that does the actual work.  There is nothing `recsub` specific here.
+Worth noting that we use `.()` to make sure the function and the data are
+evaluated in the function environment and not the parent frame.  This is
+important as this way we ensure the function is looked up with the
+namespace/search path we expect.
+
+Now the real work:
+
+```{r dplyr_extra_1}
 summarize_r_l <- function(x, els) {
   frm <- parent.frame()
   exps.sub <- recsub(substitute(els), x, frm)
   if(is.null(exps.sub)) x else {
-    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
-      exps.sub <- call("list", exps.sub)
-
     # compute groups and splits
-    has.grp <- !is.null(attr(x, ".GRP")) && length(attr(x, ".GRP"))
-    x <- as.data.frame(x)
-    grps <- if(!has.grp) list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+    grps <- make_grps(x)
     splits <- lapply(grps, eval, x, frm)
     dat.split <- split(x, splits, drop=TRUE)
-    grp.split <- if(has.grp) lapply(splits, split, splits, drop=TRUE)
+    grp.split <- if(!is.null(grps)) lapply(splits, split, splits, drop=TRUE)
 
-    # compute the aggregations
+    # aggregate
     res.list <- lapply(
-      dot_list(exps.sub),       # clean up fun, see appendix for def'n
+      dot_list(exps.sub),       # see appendix for definition
       function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
     )
-    # Find max number of rows in each group, and recycle to that
-    lens <- do.call(pmax, lapply(res.list, lengths, integer(length(splits))))
-    res.list.r <- lapply(
-      c(grp.split, res.list), function(x) unname(unlist(Map(rep_len, x, lens)))
-    )
-    as.data.frame(res.list.r)
+    # recycle to equal lengths and make data frame (see appendix)
+    list_to_df(res.list, grp.split)
   }
 }
-# == Grouping ===
+```
+
+The only `recsub` specific line is the second one.
+
+```{r eval=FALSE}
+  exps.sub <- recsub(substitute(els), x, frm)
+```
+
+`els` should be the language captured from the `...` argument.  We run `recub`
+on that language with our data `x` and the parent frame, which by design is the
+same parent frame a for `summarize_r`.  From this point forward we just need to
+cleanup the language and evaluate in the right environments.
+
+
+
+```{r dplyr_extra_2}
+
+# -- Grouping ------------------------------------------------------------------
+
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
@@ -96,7 +107,8 @@ group_r_l <- function(x, els) {
       exps.sub <- call("list", exps.sub)
     structure(x, .GRP=dot_list(exps.sub, "G"))
 } }
-# == Filtering ==
+# -- Filtering -----------------------------------------------------------------
+
 filter_r <- function(x, subset) {
   sub.exp <- substitute(subset)
   sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
@@ -108,16 +120,23 @@ filter_r <- function(x, subset) {
     } else x
   )
 }
-# == Pipe ==
+# -- Pipe ----------------------------------------------------------------------
+
 `%$%` <- function(x, y) {
   x.sub <- recsub(substitute(x), parent.frame())
   y.sub <- recsub(substitute(y), parent.frame())
   y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
   eval(sub_dat(y.sub, x), parent.frame())
 }
-# == Helper Funs ==
+# -- Helper Funs ---------------------------------------------------------------
+
+# Takes result of `substitute(list(...))` and returns a list of quoted language
+# object with nice names.
+
 dot_list <- function(x, pre="V") {
+  if(!is.call(x) || x[[1L]] != quote(list)) x <- call("list", x)
   dots <- tail(as.list(x), -1L)
+
   if(is.null(names(dots))) names(dots) <- character(length(dots))
   for(i in seq_along(dots)[!nzchar(names(dots))])
     names(dots)[i] <- if(
@@ -125,6 +144,9 @@ dot_list <- function(x, pre="V") {
     ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
   dots
 }
+# Used by the `%$%` pipe operator to find the correct point in the RHS to
+# substitute the forwarded argument in
+
 sub_dat <- function(z, dat) {
   if(is.call(z)) {
     if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
@@ -134,8 +156,24 @@ sub_dat <- function(z, dat) {
   } }
   z
 }
+# convert the ".GRP" attribute into usable form
+
+make_grps <- function(x)
+  if(is.null(attr(x, ".GRP")) || !length(attr(x, ".GRP")))
+    list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+
+# Takes result list and makes into a data.frame by recycling elements so they
+# are the same length a longest, and also adds in cols for the group vars
+
+list_to_df <- function(dat, grp) {
+  lens <- do.call(pmax, lapply(dat, lengths, integer(length(splits))))
+  as.data.frame(
+    lapply(c(grp, dat), function(x) unname(unlist(Map(rep_len, x, lens))))
+  )
+}
 ```
-And now for the fun:
+
+Our functions behave similar to the `dplyr` functions they copy:
 
 ```{r}
 state.data %$%
@@ -144,7 +182,7 @@ state.data %$%
   summarize_r(weighted.mean(Income, Population))
 ```
 
-We can store and combine expressions:
+But we can store and combine expressions with `quote`:
 
 ```{r}
 f.exp <- quote(Region %in% c('Northeast', 'South'))
@@ -168,8 +206,11 @@ state.data %$% flt %$% grp.and.sum
 ## Ersatz `data.table`
 
 For those of you unsettled by the pipe, we re-use our previous functions in a
-`data.table`-like manner.  Please note that we are taking many liberties here
-with our method implementation for the sake of conciseness.
+`data.table`-like manner.  This exercise is a demonstration of forwarding NSE
+parameters to NSE functions.
+
+Please note that we are taking many liberties here with our method
+implementation for the sake of conciseness.
 
 ```{r}
 as.super_df <- function(x) {
@@ -178,20 +219,16 @@ as.super_df <- function(x) {
 }
 "[.super_df" <- function(x, i=NULL, j=NULL, by=NULL) {
   frm <- parent.frame() # as per docs, safer to do this here
+  x <- as.data.frame(x)
   x <- eval(bquote(.(filter_r)(     .(x),  .(substitute(i)))), frm)
   x <- eval(bquote(.(group_r_l)(    .(x), .(substitute(by)))), frm)
   x <- eval(bquote(.(summarize_r_l)(.(x),  .(substitute(j)))), frm)
-
   as.super_df(x)
 }
 ```
 
-`recsub` does not solve the problem of forwarding NSE expressions to NSE
-functions so we rely on `bquote` and `eval`.  This is no different than what we
-would do with normal NSE functions, and while not ideal it is straightforward
-once one learns the pattern.
-
-The user on the other hand has an easy time of it:
+The implementation is not trivial, but also not excessively complicated.  Yet
+with it we spawn a functional `data.table` simulacra from a `dplyr` one:
 
 ```{r}
 sd <- as.super_df(state.data)
@@ -228,19 +265,14 @@ local({
 })
 ```
 
-Since it is not completely trivial to do correctly you should test your NSE
-forwarding functions as we do here.
-
 ## Appendix
-
-### Ersatz `dplyr` Functions
 
 ```{r dplyr_extra, eval=FALSE}
 ```
 
 ## References
 
-[userR2017][1]
+[userR2017 Tidyeval Presentation][1]
 [Tidyeval and Hygienic Fexprs][2]
 
 [1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
