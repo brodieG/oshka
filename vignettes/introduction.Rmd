@@ -3,7 +3,7 @@ title: "Programmable Non-Standard Evaluation"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
-        toc: false
+        toc: true
         css: styles.css
 
 vignette: >
@@ -51,17 +51,14 @@ sapply(sys.calls(), head, 1)  # sys.calls is similarly affected
 
 ## Versus `rlang`
 
-`rlang` is more powerful complex than `recsub`.  You can do more with `rlang`,
-but in our opinion it is harder to learn, particularly for those already
-familiar with language manipulation in R. You must learn several new concepts
-and non-standard semantics.
+`recsub` is simple in design and purpose.  It exports a single function that
+substitutes expressions into other expressions.  It hews closely to R semantics.
+`rlang` is more ambitious and more complex as a result.  To use it you must
+learn new concepts and semantics.
 
-There is more complexity in the simple use case because quosures must be
-unquoted when they are combined and when they are passed to the NSE functions.
-The following two expressions are equivalent:
+One manifestation of the additional complexity in `rlang` is that you must
+unquote expressions to use them:
 
-```{r rec_ex_1, eval=FALSE}
-```
 ```{r eval=FALSE}
 rlang.b <- quo(Species == 'virginica')
 rlang.c <- quo(Sepal.Width > 3.6)
@@ -70,8 +67,14 @@ rlang.d <- quo(!!rlang.b & !!rlang.c)
 dplyr::filter(iris, !!rlang.d)
 ```
 
-This additional complexity is offset by the simpler forwarding of NSE arguments
-to NSE functions enabled by the environment capture feature of quosures:
+As shown earlier, the `recsub` version is more straightforward as it uses the
+standard `quote` function and does not require unquoting:
+
+```{r rec_ex_1, eval=FALSE}
+```
+
+On the other hand, forwarding of NSE arguments to NSE functions is simpler
+in `rlang` due to environment capture feature of quosures:
 
 ```{r eval=FALSE}
 rlang_virginica <- function(subset) {
@@ -79,6 +82,10 @@ rlang_virginica <- function(subset) {
   dplyr::filter(iris, Species == 'virginica' & !!subset)
 }
 ```
+
+Because `recsub` does not capture environments, we must resort to the
+`eval`/`bquote` pattern:
+
 ```{r eval=FALSE}
 recub_virginica <- function(subset) {
   subset <- bquote(Species == 'virginica' & .(substitute(subset)))
