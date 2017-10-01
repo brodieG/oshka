@@ -22,24 +22,10 @@ library(recsub)
 
 ## Additional Documentation
 
-* [Intro vignette]() for a more in depth introduction to `recsub`.
+* [Intro vignette]() for a more in depth introduction to `recsub`, including a
+  brief comparison to `rlang`.
 * [NSE Functions with `recsub`]() in which we recreate simplified versions of
   `dplyr` and `data.table` that implement programmable NSE with `recsub`.
-
-## Related Packages
-
-[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive version of programmable NSE.  It is more
-powerful, but also more complicated for the most common use of composing
-NSE expressions to store in variables for later evaluation by an NSE function.
-
-The following presentations are good resources for `rlang` in detail:
-
-* [userR2017 Tidyeval Presentation][1]
-* [Tidyeval and Hygienic Fexprs][2]
-
-[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
-[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
 
 ## Development Status
 

@@ -1,4 +1,4 @@
-## Basic Programmable NSE
+## Programmable NSE
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -41,7 +41,5 @@ subset2(iris, my.exp.d)
 ```
 
 We abide by R semantics so that programmable NSE functions are almost
-identical to normal NSE functions.  Using it them is the same, with
-programmability as a bonus.  Recursive language substitution follows the
-same semantics as normal object substitution.
+identical to normal NSE functions, with programmability as a bonus.
 
