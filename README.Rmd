@@ -17,16 +17,29 @@ library(recsub)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-```{r child='vignettes/rmdhunks/intro.Rmd'}
+```{r child='vignettes/rmdhunks/basic.Rmd'}
 ```
+
+## Additional Documentation
+
+* [Intro vignette]() for a more in depth introduction to `recsub`.
+* [NSE Functions with `recsub`]() in which we recreate simplified versions of
+  `dplyr` and `data.table` that implement programmable NSE with `recsub`.
 
 ## Related Packages
 
 [rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive version of programmable NSE.  In
-particular it captures NSE expression environments, which among other
-thing simplifies the NSE expression forwarding problem.  On the other hand, it
-is substantially more complex.
+Wickham implements a more comprehensive version of programmable NSE.  It is more
+powerful, but also more complicated for the most common use of composing
+NSE expressions to store in variables for later evaluation by an NSE function.
+
+The following presentations are good resources for `rlang` in detail:
+
+* [userR2017 Tidyeval Presentation][1]
+* [Tidyeval and Hygienic Fexprs][2]
+
+[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
+[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
 
 ## Development Status
 

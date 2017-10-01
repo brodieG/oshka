@@ -7,7 +7,7 @@ output:
         css: styles.css
 
 vignette: >
-  %\VignetteIndexEntry{vetr}
+  %\VignetteIndexEntry{NSE Functions with Recsub}
   %\VignetteEngine{knitr::rmarkdown}
   %\usepackage[utf8]{inputenc}
 ---
@@ -330,10 +330,4 @@ Ersatz `dplyr` implementation.
 ```
 
 ## References
-
-* [userR2017 Tidyeval Presentation][1]
-* [Tidyeval and Hygienic Fexprs][2]
-
-[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
-[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
 
