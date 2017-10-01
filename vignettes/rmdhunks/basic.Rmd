@@ -32,7 +32,7 @@ subset2(iris, my.exp.a)
 
 `recsub` is recursive:
 
-```{r}
+```{r rec_ex_1}
 my.exp.b <- quote(Species == 'virginica')
 my.exp.c <- quote(Sepal.Width > 3.6)
 my.exp.d <- quote(my.exp.b & my.exp.c)

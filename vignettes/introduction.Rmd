@@ -17,7 +17,9 @@ knitr::opts_chunk$set(error=TRUE, comment=NA)
 library(recsub)
 ```
 
-```{r child='./rmdhunks/intro.Rmd'}
+```{r child='./rmdhunks/basic.Rmd'}
+```
+```{r child='./rmdhunks/forwarding.Rmd'}
 ```
 
 ## Other Considerations
@@ -38,16 +40,48 @@ my_fun_outer(mtcars)
 traceback()
 ```
 
-The entire function definition as well as the data frame will be displayed by
+The entire deparsed function definition and data frame will be displayed in
 the traceback, which makes it difficult to see what is happening.  A simple
 work-around is to use:
 
 ```{r, eval=FALSE}
 sapply(.traceback(), head, 1)
+sapply(sys.calls(), head, 1)  # sys.calls is similarly affected
 ```
 
-This will show only the first line of each deparsed call.  Similarly:
+## Versus `rlang`
 
-```{r, eval=FALSE}
-sapply(sys.calls(), head, 1)
+`rlang` is more powerful complex than `recsub`.  You can do more with `rlang`,
+but in our opinion it is harder to learn, particularly for those already
+familiar with language manipulation in R. You must learn several new concepts
+and non-standard semantics.
+
+There is more complexity in the simple use case because quosures must be
+unquoted when they are combined and when they are passed to the NSE functions.
+The following two expressions are equivalent:
+
+```{r rec_ex_1, eval=FALSE}
+```
+```{r eval=FALSE}
+rlang.b <- quo(Species == 'virginica')
+rlang.c <- quo(Sepal.Width > 3.6)
+rlang.d <- quo(!!rlang.b & !!rlang.c)
+
+dplyr::filter(iris, !!rlang.d)
+```
+
+This additional complexity is offset by the simpler forwarding of NSE arguments
+to NSE functions enabled by the environment capture feature of quosures:
+
+```{r eval=FALSE}
+rlang_virginica <- function(subset) {
+  subset <- enquo(subset)
+  dplyr::filter(iris, Species == 'virginica' & !!subset)
+}
+```
+```{r eval=FALSE}
+recub_virginica <- function(subset) {
+  subset <- bquote(Species == 'virginica' & .(substitute(subset)))
+  eval(bquote(.(subset2)(iris, .(subset))), parent.frame())
+}
 ```
