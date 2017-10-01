@@ -1,5 +1,5 @@
 ---
-title: "Comparison of Programmable NSE Frameworks"
+title: "NSE Functions with `recsub`"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
@@ -17,20 +17,22 @@ knitr::opts_chunk$set(error=TRUE, comment=NA)
 library(recsub)
 ```
 
-## `recsub` in Action
+## Overview
 
 We will implement simplified versions of `dplyr` and `data.table` to illustrate
-how one could use `recsub` to develop programmable NSE functions.  The
-implementations will be limited in functionality, robustness, and speed, but
-despite this we hope you will find them adequate for pedagogical purposes.
+how to write programmable NSE functions with `recsub`.  The implementations are
+intentionally limited in functionality, robustness, and speed for the sake of
+simplicity.
 
-Our test data is derived from the `state` data that comes pre-loaded with R:
+Our test data is derived from the `state` dataset that comes pre-loaded with R:
 
 ```{r}
 head(state.data, 2)
 ```
 
 ## An Ersatz `dplyr`
+
+### Interface
 
 The interface is as follows:
 
@@ -40,61 +42,31 @@ filter_r <- function(x, subset) {...} # similar to dplyr::filter
 summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
 `%$%` <- function(x, y) {...}         # similar to the magrittr pipe
 ```
-
-Most of the implementation is not directly related to NSE, but we will go over
-`summarize_r` to highlight the NSE bits.  `summarize_r` is actually just a
-forwarding function:
-
-```{r dplyr_extra_0}
+```{r dplyr_extra_0, echo=FALSE}
 summarize_r <- function(x, ...)
   eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 ```
-
-This uses the `eval`/`bquote` pattern to forward the `NSE` arguments to the
-function that does the actual work.  There is nothing `recsub` specific here.
-Worth noting that we use `.()` to make sure the function and the data are
-evaluated in the function environment and not the parent frame.  This is
-important as this way we ensure the function is looked up with the
-namespace/search path we expect.
-
-Now the real work:
-
-```{r dplyr_extra_1}
+```{r dplyr_extra_1, echo=FALSE}
 summarize_r_l <- function(x, els) {
   frm <- parent.frame()
   exps.sub <- recsub(substitute(els), x, frm)
   if(is.null(exps.sub)) x else {
     # compute groups and splits
-    grps <- make_grps(x)
+    grps <- make_grps(x)        # see appendix
     splits <- lapply(grps, eval, x, frm)
     dat.split <- split(x, splits, drop=TRUE)
     grp.split <- if(!is.null(grps)) lapply(splits, split, splits, drop=TRUE)
 
     # aggregate
     res.list <- lapply(
-      dot_list(exps.sub),       # see appendix for definition
+      dot_list(exps.sub),       # see appendix
       function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
     )
-    # recycle to equal lengths and make data frame (see appendix)
-    list_to_df(res.list, grp.split)
+    list_to_df(res.list, grp.split, splits)   # see appendix
   }
 }
 ```
-
-The only `recsub` specific line is the second one.
-
-```{r eval=FALSE}
-  exps.sub <- recsub(substitute(els), x, frm)
-```
-
-`els` should be the language captured from the `...` argument.  We run `recub`
-on that language with our data `x` and the parent frame, which by design is the
-same parent frame a for `summarize_r`.  From this point forward we just need to
-cleanup the language and evaluate in the right environments.
-
-
-
-```{r dplyr_extra_2}
+```{r dplyr_extra_2, echo=FALSE}
 
 # -- Grouping ------------------------------------------------------------------
 
@@ -165,15 +137,14 @@ make_grps <- function(x)
 # Takes result list and makes into a data.frame by recycling elements so they
 # are the same length a longest, and also adds in cols for the group vars
 
-list_to_df <- function(dat, grp) {
+list_to_df <- function(dat, grp, splits) {
   lens <- do.call(pmax, lapply(dat, lengths, integer(length(splits))))
   as.data.frame(
     lapply(c(grp, dat), function(x) unname(unlist(Map(rep_len, x, lens))))
   )
 }
 ```
-
-Our functions behave similar to the `dplyr` functions they copy:
+Our functions mimic the corresponding `dplyr` ones:
 
 ```{r}
 state.data %$%
@@ -182,7 +153,70 @@ state.data %$%
   summarize_r(weighted.mean(Income, Population))
 ```
 
-But we can store and combine expressions with `quote`:
+### Implementation
+
+Most of the implementation is not directly related to `recsub` NSE, but we will
+go over `summarize_r` to highlight how those parts integrate with the rest.
+`summarize_r` is just a forwarding function:
+
+```{r dplyr_extra_0, eval=FALSE}
+```
+We use the `eval`/`bquote` pattern to forward `NSE` arguments.  We
+retrieve `summarize_r_l` from the current function frame with `.()`, because
+there is no guarantee we would find it on the search path starting from the
+parent frame.  In this case it happens to be available, but it would not be if
+these functions were in a package.
+
+We present `recsub` in full for reference, but feel free to skip as we highlight
+the interesting bits next:
+
+```{r dplyr_extra_1, eval=FALSE}
+```
+
+The only `recsub` specific line is the second one:
+
+```{r eval=FALSE}
+  exps.sub <- recsub(substitute(els), x, frm)
+```
+
+`els` is the language captured and forwarded by `summarize_r`.  We run `recub`
+on that language with our data `x` as the environment and the parent frame as
+the enclosure.  We then compute the groups:
+
+```{r eval=FALSE}
+    grps <- make_grps(x)        # see appendix
+    splits <- lapply(grps, eval, x, frm)
+```
+
+`make_grps` extracts the grouping expressions generating by `group_r`.  These
+have already been substituted so we evaluate each one with `x` as the
+environment and the parent frame as the enclosure.  We use this to split our
+data into groups:
+
+```{r eval=FALSE}
+    dat.split <- split(x, splits, drop=TRUE)
+```
+
+Finally we can evaluate our `recsub`ed expressions within each of the groups:
+
+```{r eval=FALSE}
+    # aggregate
+    res.list <- lapply(
+      dot_list(exps.sub),       # see appendix
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+    )
+    list_to_df(res.list, grp.split, splits)   # see appendix
+```
+
+`dot.list` turns `exps.sub` into a list of expressions.  Each expression is then
+evaluated with each data chunk as the environment and the parent frame as the
+enclosure.  Finally `list_to_df` turns our lists of vectors into a data frame.
+
+You can see the rest of the implementation in the [appendix](#appendix).
+
+### Examples
+
+That single `rescub` line enables a programmable NSE:
 
 ```{r}
 f.exp <- quote(Region %in% c('Northeast', 'South'))
@@ -194,7 +228,7 @@ state.data %$%
   summarize_r(round(s.exp))
 ```
 
-And since `%$%` supports recursive substitutions we can even do the following:
+Because `%$%` uses `recsub` too you can even do the following:
 
 ```{r}
 flt <- quote(filter_r(f.exp & Population > 1000))
@@ -203,14 +237,12 @@ grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
 state.data %$% flt %$% grp.and.sum
 ```
 
-## Ersatz `data.table`
+## An Ersatz `data.table`
 
-For those of you unsettled by the pipe, we re-use our previous functions in a
-`data.table`-like manner.  This exercise is a demonstration of forwarding NSE
-parameters to NSE functions.
+### Implementation
 
-Please note that we are taking many liberties here with our method
-implementation for the sake of conciseness.
+We wish to re-use our ersatz `dplyr` functions to create a `data.table`-like
+interface:
 
 ```{r}
 as.super_df <- function(x) {
@@ -227,8 +259,15 @@ as.super_df <- function(x) {
 }
 ```
 
-The implementation is not trivial, but also not excessively complicated.  Yet
-with it we spawn a functional `data.table` simulacra from a `dplyr` one:
+Again, we use the `eval`/`bquote` pattern to forward the NSE arguments to our
+NSE functions `filter_r_l`, `group_r_l`, and `summarize_r_l`.  The pattern
+is not trivial, but it only took six lines of code to transmogrify our
+faux-`dplyr` into a faux-`data.table`.
+
+### Examples
+
+After we add the `super_df` class to our data we can start using it with
+`data.table` semantics, but with programmable NSE:
 
 ```{r}
 sd <- as.super_df(state.data)
@@ -237,16 +276,16 @@ sd[f.exp, s.exp, by=Region]
 exp.a <- quote(max(Illiteracy))
 exp.b <- quote(min(Illiteracy))
 
-sd[f.exp, list(exp.a, exp.b), by=list(Region, has_nfl)][1:2,]
+sd[f.exp, list(exp.a, exp.b), by=list(Region, HasNfl)][1:3,]
 
 exp.c <- quote(list(exp.a, exp.b))
-exp.d <- quote(list(Region, has_nfl))
+exp.d <- quote(list(Region, HasNfl))
 
-sd[f.exp, exp.c, by=exp.d][1:2,]
+sd[f.exp, exp.c, by=exp.d][1:3,]
 
 ```
 
-If done correctly symbols should resolve as expected, even in more complex
+Despite the forwarding layers the symbols resolve as expected in complex
 circumstances:
 
 ```{r}
@@ -265,15 +304,35 @@ local({
 })
 ```
 
+And we can even nest our `dplyr` and `data.table` for an unholy abomination:
+
+```{r}
+
+exp <- quote(data.frame(pop=Population) %$% summarize_r(new.pop=pop * 1.2))
+
+local({
+  exps <- list(quote(sum(exp$new.pop)), quote(sum(Population)))
+  g.exp <- quote(Region)
+  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+})
+
+```
+
 ## Appendix
 
-```{r dplyr_extra, eval=FALSE}
+Ersatz `dplyr` implementation.
+
+```{r dplyr_extra_0, eval=FALSE}
+```
+```{r dplyr_extra_1, eval=FALSE}
+```
+```{r dplyr_extra_2, eval=FALSE}
 ```
 
 ## References
 
-[userR2017 Tidyeval Presentation][1]
-[Tidyeval and Hygienic Fexprs][2]
+* [userR2017 Tidyeval Presentation][1]
+* [Tidyeval and Hygienic Fexprs][2]
 
 [1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
 [2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf
