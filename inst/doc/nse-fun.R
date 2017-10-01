@@ -1,0 +1,335 @@
+## ----global_options, echo=FALSE------------------------------------------
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(recsub)
+
+## ------------------------------------------------------------------------
+head(state.data, 2)
+
+## ---- eval=FALSE---------------------------------------------------------
+#  group_r <- function(x, ...) {...}     # similar to dplyr::group_by
+#  filter_r <- function(x, subset) {...} # similar to dplyr::filter
+#  summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
+#  `%$%` <- function(x, y) {...}         # similar to the magrittr pipe
+
+## ----dplyr_extra_0, echo=FALSE-------------------------------------------
+summarize_r <- function(x, ...)
+  eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+
+## ----dplyr_extra_1, echo=FALSE-------------------------------------------
+summarize_r_l <- function(x, els) {
+  frm <- parent.frame()
+  exps.sub <- recsub(substitute(els), x, frm)
+  if(is.null(exps.sub)) x else {
+    # compute groups and splits
+    grps <- make_grps(x)        # see appendix
+    splits <- lapply(grps, eval, x, frm)
+    dat.split <- split(x, splits, drop=TRUE)
+    grp.split <- if(!is.null(grps)) lapply(splits, split, splits, drop=TRUE)
+
+    # aggregate
+    res.list <- lapply(
+      dot_list(exps.sub),       # see appendix
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+    )
+    list_to_df(res.list, grp.split, splits)   # see appendix
+  }
+}
+
+## ----dplyr_extra_2, echo=FALSE-------------------------------------------
+
+# -- Grouping ------------------------------------------------------------------
+
+group_r <- function(x, ...)
+  eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+group_r_l <- function(x, els) {
+  exps.sub <- recsub(substitute(els), x, parent.frame())
+  if(is.null(exps.sub)) x else {
+    if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+      exps.sub <- call("list", exps.sub)
+    structure(x, .GRP=dot_list(exps.sub, "G"))
+} }
+# -- Filtering -----------------------------------------------------------------
+
+filter_r <- function(x, subset) {
+  sub.exp <- substitute(subset)
+  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  as.data.frame(
+    if(!is.null(sub.val)) {
+      as.data.frame(x)[
+        if(is.numeric(sub.val)) sub.val else !is.na(sub.val) & sub.val,
+      ]
+    } else x
+  )
+}
+# -- Pipe ----------------------------------------------------------------------
+
+`%$%` <- function(x, y) {
+  x.sub <- recsub(substitute(x), parent.frame())
+  y.sub <- recsub(substitute(y), parent.frame())
+  y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+  eval(sub_dat(y.sub, x), parent.frame())
+}
+# -- Helper Funs ---------------------------------------------------------------
+
+# Takes result of `substitute(list(...))` and returns a list of quoted language
+# object with nice names.
+
+dot_list <- function(x, pre="V") {
+  if(!is.call(x) || x[[1L]] != quote(list)) x <- call("list", x)
+  dots <- tail(as.list(x), -1L)
+
+  if(is.null(names(dots))) names(dots) <- character(length(dots))
+  for(i in seq_along(dots)[!nzchar(names(dots))])
+    names(dots)[i] <- if(
+      is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 20
+    ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
+  dots
+}
+# Used by the `%$%` pipe operator to find the correct point in the RHS to
+# substitute the forwarded argument in
+
+sub_dat <- function(z, dat) {
+  if(is.call(z)) {
+    if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
+    else {
+      z.list <- as.list(z)
+      z <- as.call(c(z.list[1], list(dat), tail(z.list, -1)))
+  } }
+  z
+}
+# convert the ".GRP" attribute into usable form
+
+make_grps <- function(x)
+  if(is.null(attr(x, ".GRP")) || !length(attr(x, ".GRP")))
+    list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+
+# Takes result list and makes into a data.frame by recycling elements so they
+# are the same length a longest, and also adds in cols for the group vars
+
+list_to_df <- function(dat, grp, splits) {
+  lens <- do.call(pmax, lapply(dat, lengths, integer(length(splits))))
+  as.data.frame(
+    lapply(c(grp, dat), function(x) unname(unlist(Map(rep_len, x, lens))))
+  )
+}
+
+## ------------------------------------------------------------------------
+state.data %$%
+  filter_r(Region %in% c('Northeast', 'South')) %$%
+  group_r(Region) %$%
+  summarize_r(weighted.mean(Income, Population))
+
+## ----dplyr_extra_0, eval=FALSE-------------------------------------------
+#  summarize_r <- function(x, ...)
+#    eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+
+## ----dplyr_extra_1, eval=FALSE-------------------------------------------
+#  summarize_r_l <- function(x, els) {
+#    frm <- parent.frame()
+#    exps.sub <- recsub(substitute(els), x, frm)
+#    if(is.null(exps.sub)) x else {
+#      # compute groups and splits
+#      grps <- make_grps(x)        # see appendix
+#      splits <- lapply(grps, eval, x, frm)
+#      dat.split <- split(x, splits, drop=TRUE)
+#      grp.split <- if(!is.null(grps)) lapply(splits, split, splits, drop=TRUE)
+#  
+#      # aggregate
+#      res.list <- lapply(
+#        dot_list(exps.sub),       # see appendix
+#        function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+#      )
+#      list_to_df(res.list, grp.split, splits)   # see appendix
+#    }
+#  }
+
+## ----eval=FALSE----------------------------------------------------------
+#    exps.sub <- recsub(substitute(els), x, frm)
+
+## ----eval=FALSE----------------------------------------------------------
+#      grps <- make_grps(x)        # see appendix
+#      splits <- lapply(grps, eval, x, frm)
+
+## ----eval=FALSE----------------------------------------------------------
+#      dat.split <- split(x, splits, drop=TRUE)
+
+## ----eval=FALSE----------------------------------------------------------
+#      # aggregate
+#      res.list <- lapply(
+#        dot_list(exps.sub),       # see appendix
+#        function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+#      )
+#      list_to_df(res.list, grp.split, splits)   # see appendix
+
+## ------------------------------------------------------------------------
+f.exp <- quote(Region %in% c('Northeast', 'South'))
+s.exp <- quote(weighted.mean(Income, Population))
+
+state.data %$%
+  filter_r(f.exp & Population > 1000) %$%
+  group_r(Region) %$%
+  summarize_r(round(s.exp))
+
+## ------------------------------------------------------------------------
+flt <- quote(filter_r(f.exp & Population > 1000))
+grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
+
+state.data %$% flt %$% grp.and.sum
+
+## ------------------------------------------------------------------------
+as.super_df <- function(x) {
+  class(x) <- c("super_df", class(x))
+  x
+}
+"[.super_df" <- function(x, i=NULL, j=NULL, by=NULL) {
+  frm <- parent.frame() # as per docs, safer to do this here
+  x <- as.data.frame(x)
+  x <- eval(bquote(.(filter_r)(     .(x),  .(substitute(i)))), frm)
+  x <- eval(bquote(.(group_r_l)(    .(x), .(substitute(by)))), frm)
+  x <- eval(bquote(.(summarize_r_l)(.(x),  .(substitute(j)))), frm)
+  as.super_df(x)
+}
+
+## ------------------------------------------------------------------------
+sd <- as.super_df(state.data)
+sd[f.exp, s.exp, by=Region]
+
+exp.a <- quote(max(Illiteracy))
+exp.b <- quote(min(Illiteracy))
+
+sd[f.exp, list(exp.a, exp.b), by=list(Region, HasNfl)][1:3,]
+
+exp.c <- quote(list(exp.a, exp.b))
+exp.d <- quote(list(Region, HasNfl))
+
+sd[f.exp, exp.c, by=exp.d][1:3,]
+
+
+## ------------------------------------------------------------------------
+exps <- quote(list(stop("boo"), stop("ya")))  # don't use this
+g.exp <- quote(State)                         # nor this
+
+local({
+  summarize_r_l <- function(x, y) stop("boom")  # nor this
+  max.inc <- quote(max(Income))                 # use this
+  min.inc <- quote(min(Income))                 # and this
+  exps <- list(max.inc, min.inc)
+
+  g.exp <- quote(Region)                        # and this
+
+  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+})
+
+## ------------------------------------------------------------------------
+
+exp <- quote(data.frame(pop=Population) %$% summarize_r(new.pop=pop * 1.2))
+
+local({
+  exps <- list(quote(sum(exp$new.pop)), quote(sum(Population)))
+  g.exp <- quote(Region)
+  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+})
+
+
+## ----dplyr_extra_0, eval=FALSE-------------------------------------------
+#  summarize_r <- function(x, ...)
+#    eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+
+## ----dplyr_extra_1, eval=FALSE-------------------------------------------
+#  summarize_r_l <- function(x, els) {
+#    frm <- parent.frame()
+#    exps.sub <- recsub(substitute(els), x, frm)
+#    if(is.null(exps.sub)) x else {
+#      # compute groups and splits
+#      grps <- make_grps(x)        # see appendix
+#      splits <- lapply(grps, eval, x, frm)
+#      dat.split <- split(x, splits, drop=TRUE)
+#      grp.split <- if(!is.null(grps)) lapply(splits, split, splits, drop=TRUE)
+#  
+#      # aggregate
+#      res.list <- lapply(
+#        dot_list(exps.sub),       # see appendix
+#        function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+#      )
+#      list_to_df(res.list, grp.split, splits)   # see appendix
+#    }
+#  }
+
+## ----dplyr_extra_2, eval=FALSE-------------------------------------------
+#  
+#  # -- Grouping ------------------------------------------------------------------
+#  
+#  group_r <- function(x, ...)
+#    eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
+#  group_r_l <- function(x, els) {
+#    exps.sub <- recsub(substitute(els), x, parent.frame())
+#    if(is.null(exps.sub)) x else {
+#      if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
+#        exps.sub <- call("list", exps.sub)
+#      structure(x, .GRP=dot_list(exps.sub, "G"))
+#  } }
+#  # -- Filtering -----------------------------------------------------------------
+#  
+#  filter_r <- function(x, subset) {
+#    sub.exp <- substitute(subset)
+#    sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+#    as.data.frame(
+#      if(!is.null(sub.val)) {
+#        as.data.frame(x)[
+#          if(is.numeric(sub.val)) sub.val else !is.na(sub.val) & sub.val,
+#        ]
+#      } else x
+#    )
+#  }
+#  # -- Pipe ----------------------------------------------------------------------
+#  
+#  `%$%` <- function(x, y) {
+#    x.sub <- recsub(substitute(x), parent.frame())
+#    y.sub <- recsub(substitute(y), parent.frame())
+#    y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
+#    eval(sub_dat(y.sub, x), parent.frame())
+#  }
+#  # -- Helper Funs ---------------------------------------------------------------
+#  
+#  # Takes result of `substitute(list(...))` and returns a list of quoted language
+#  # object with nice names.
+#  
+#  dot_list <- function(x, pre="V") {
+#    if(!is.call(x) || x[[1L]] != quote(list)) x <- call("list", x)
+#    dots <- tail(as.list(x), -1L)
+#  
+#    if(is.null(names(dots))) names(dots) <- character(length(dots))
+#    for(i in seq_along(dots)[!nzchar(names(dots))])
+#      names(dots)[i] <- if(
+#        is.language(dots[[i]]) && nchar(deparse(dots[[i]])[[1]]) < 20
+#      ) deparse(dots[[i]])[[1]] else sprintf("%s%d", pre, i)
+#    dots
+#  }
+#  # Used by the `%$%` pipe operator to find the correct point in the RHS to
+#  # substitute the forwarded argument in
+#  
+#  sub_dat <- function(z, dat) {
+#    if(is.call(z)) {
+#      if(z[[1]] == as.name('%$%')) z[[2]] <- sub_dat(z[[2]], dat)
+#      else {
+#        z.list <- as.list(z)
+#        z <- as.call(c(z.list[1], list(dat), tail(z.list, -1)))
+#    } }
+#    z
+#  }
+#  # convert the ".GRP" attribute into usable form
+#  
+#  make_grps <- function(x)
+#    if(is.null(attr(x, ".GRP")) || !length(attr(x, ".GRP")))
+#      list(rep_len(1, nrow(x))) else attr(x, ".GRP")
+#  
+#  # Takes result list and makes into a data.frame by recycling elements so they
+#  # are the same length a longest, and also adds in cols for the group vars
+#  
+#  list_to_df <- function(dat, grp, splits) {
+#    lens <- do.call(pmax, lapply(dat, lengths, integer(length(splits))))
+#    as.data.frame(
+#      lapply(c(grp, dat), function(x) unname(unlist(Map(rep_len, x, lens))))
+#    )
+#  }
+
