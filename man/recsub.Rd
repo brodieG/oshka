@@ -2,11 +2,73 @@
 % Please edit documentation in R/recsub.R
 \name{recsub}
 \alias{recsub}
-\title{Recursively Substitute Language}
+\title{Recursively Substitute Symbols in Quoted Language}
 \usage{
 recsub(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
+\arguments{
+\item{expr}{an object to be evaluated, typically a quoted language object as
+returned by \code{quote} or \code{substitute}.  \code{expr} will be recursively
+substituted by \code{recsub}.}
+
+\item{envir}{the \code{\link{environment}} in which \code{expr} is to
+    be evaluated.  May also be \code{NULL}, a list, a data frame,
+    a pairlist or an integer as specified to \code{\link{sys.call}}.}
+
+\item{enclos}{Relevant when \code{envir} is a (pair)list or a data frame.
+    Specifies the enclosure, i.e., where \R looks for objects not found
+    in \code{envir}.  This can be \code{NULL} (interpreted as the base
+    package environment, \code{\link{baseenv}()}) or an environment.}
+}
+\value{
+If the input is a language object, that object with all symbols
+recursively substituted, otherwise the input unchanged.
+}
 \description{
-Blah blah
+Recursively substitutes symbols in quoted language (i.e. \code{typeof(x) \\\%in\\\% c("expression", "language", "symbol")}) that point to quoted language objects
+until the resulting language object only contains symbols that point to
+non-language objects.  The examples are easier to understand than the prior
+sentence, so you are encouraged to look at those.
+}
+\details{
+The expansion of quoted language via recursive substitution allows the
+implementation of programmable Non-Standard Evaluation (NSE hereafter).
+Users can create complex quoted language expressions from simple ones by
+combining them as they would tokens in standard R expressions.  Then, a
+programmable NSE aware function can use \code{recsub} or \link{evalr} to expand the
+quoted language into usable form.
+
+During the recursive substitution, symbols are looked up through the search
+path in the same way as standard R evaluation looks up symbols.  One subtlety
+is that if symbol A expands to a language object B, the symbols in
+language object B are looked for starting from the environment that A is
+bound to, not the topmost environment.  This is because presumably the
+process that resulted in language object B cannot be aware of what the child
+environments of A and B's environment will be at runtime.
+
+Symbols at the first position in function calls are not substituted (i.e. in
+\code{fun(x, y)} the \code{fun} is not eligible for substitution).
+}
+\examples{
+xzw <- uvt <- NULL  # make sure not lang objects
+aaa <- quote(xzw > 3)
+bbb <- quote(xzw < 10)
+ccc <- quote(aaa & bbb)
+recsub(ccc)
+
+## You can place list like objects in the search path
+l <- list(bbb=quote(uvt < 9999))
+recsub(ccc, l)
+
+## But notice what happens if we use `quote(c)` instead of
+## just `c`.  This is because in this case `recsub` must
+## look for the `c` symbol in the search path, and once
+## it finds it it looks for `a` and `b` starting from the
+## environment `c` is bound to.
+
+recsub(quote(ccc), l)
+}
+\seealso{
+\link{evalr}
 }
