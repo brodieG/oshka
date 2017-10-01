@@ -22,10 +22,14 @@ library(recsub)
 
 ## Additional Documentation
 
-* [Intro vignette]() for a more in depth introduction to `recsub`, including a
-  brief comparison to `rlang`.
-* [NSE Functions with `recsub`]() in which we recreate simplified versions of
-  `dplyr` and `data.table` that implement programmable NSE with `recsub`.
+* [Intro
+  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/introduction.html)
+  for a more in depth introduction to `recsub`, including a brief comparison to
+  `rlang`.
+* [NSE Functions with
+  `recsub`](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/nse-fun.html)
+  in which we recreate simplified versions of `dplyr` and `data.table` that
+  implement programmable NSE with `recsub`.
 
 ## Development Status
 

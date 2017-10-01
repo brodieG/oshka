@@ -329,5 +329,3 @@ Ersatz `dplyr` implementation.
 ```{r dplyr_extra_2, eval=FALSE}
 ```
 
-## References
-
