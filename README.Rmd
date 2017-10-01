@@ -17,16 +17,19 @@ library(recsub)
 [![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-```{r child='vignettes/rmdhunks/intro.Rmd'}
+```{r child='vignettes/rmdhunks/basic.Rmd'}
 ```
 
-## Related Packages
+## Additional Documentation
 
-[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive version of programmable NSE.  In
-particular it captures NSE expression environments, which among other
-thing simplifies the NSE expression forwarding problem.  On the other hand, it
-is substantially more complex.
+* [Intro
+  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/introduction.html)
+  for a more in depth introduction to `recsub`, including a brief comparison to
+  `rlang`.
+* [NSE Functions with
+  `recsub`](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/nse-fun.html)
+  in which we recreate simplified versions of `dplyr` and `data.table` that
+  implement programmable NSE with `recsub`.
 
 ## Development Status
 

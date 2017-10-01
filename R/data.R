@@ -22,7 +22,7 @@ state.data <- cbind(
     Population=unname(state.x77[, "Population"]),
     Income=unname(state.x77[, "Income"]),
     Illiteracy=unname(state.x77[, "Illiteracy"]),
-    has_nfl=state.name %in% nfl.state
+    HasNfl=state.name %in% nfl.state
   )
 )
 

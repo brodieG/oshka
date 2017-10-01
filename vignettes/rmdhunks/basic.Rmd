@@ -1,0 +1,45 @@
+## Programmable NSE
+
+Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
+captured and evaluated in a manner different than if they had been executed
+without intervention.  `subset` is a canonical example:
+
+```{r}
+subset(iris, Sepal.Width > 4.1)
+```
+
+`Sepal.Width` does not exist in the global environment, yet this works because
+`subset` captures the expression and evaluates it within `iris`.
+
+A limitation of NSE is that it is difficult to use programmatically:
+
+```{r}
+my.exp.a <- quote(Sepal.Width > 4.1)
+subset(iris, my.exp.a)
+```
+
+`recsub` facilitates programmable NSE, as with this simplified version of
+`subset`:
+
+```{r}
+subset2 <- function(x, subset) {
+  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.val <- eval(sub.exp, x, parent.frame())
+  x[!is.na(sub.val) & sub.val, ]
+}
+subset2(iris, my.exp.a)
+```
+
+`recsub` is recursive:
+
+```{r rec_ex_1}
+my.exp.b <- quote(Species == 'virginica')
+my.exp.c <- quote(Sepal.Width > 3.6)
+my.exp.d <- quote(my.exp.b & my.exp.c)
+
+subset2(iris, my.exp.d)
+```
+
+We abide by R semantics so that programmable NSE functions are almost
+identical to normal NSE functions, with programmability as a bonus.
+

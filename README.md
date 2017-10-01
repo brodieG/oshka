@@ -10,7 +10,7 @@
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
 
-## Basic Programmable NSE
+## Programmable NSE
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -67,84 +67,15 @@ subset2(iris, my.exp.d)
 ```
 
 We abide by R semantics so that programmable NSE functions are almost
-identical to normal NSE functions.  Using it them is the same, with
-programmability as a bonus.  Recursive language substitution follows the
-same semantics as normal object substitution.
-
-## Forwarding NSE Arguments to NSE Functions
-
-If you wish to write a function that uses a programmable NSE function and
-forwards its NSE arguments to it, you must ensure the NSE expressions are
-evaluated in the correct environment, typically the `parent.frame()`.  This is
-no different than with normal NSE functions.  An example:
+identical to normal NSE functions, with programmability as a bonus.
 
 
-```r
-subset3 <- function(x, subset, select, drop=FALSE) {
-  frm <- parent.frame()  # as per note in ?parent.frame, better to call here
-  sub.q <- recsub(substitute(subset), x, frm)
-  sel.q <- recsub(substitute(select), x, frm)
-  eval(bquote(base::subset(.(x), .(sub.q), .(sel.q), drop=.(drop))), frm)
-}
-```
+## Additional Documentation
 
-We use `bquote` to assemble our substituted call and `eval` to evaluate it in
-the correct frame.  The parts of the call that should evaluate in `subset3` are
-escaped with `.()`.  This requires some work from the programmer, but the user
-reaps the benefits:
-
-
-```r
-col <- quote(Sepal.Length)
-sub <- quote(Species == 'setosa')
-
-subset3(iris, sub & col > 5.5, col:Petal.Length)
-##    Sepal.Length Sepal.Width Petal.Length
-## 15          5.8         4.0          1.2
-## 16          5.7         4.4          1.5
-## 19          5.7         3.8          1.7
-```
-
-The forwarding is robust to unusual evaluation:
-
-
-```r
-col.a <- quote(I_dont_exist)
-col.b <- quote(Sepal.Length)
-sub.a <- quote(stop("all hell broke loose"))
-sub.b <- quote(stop("all hell broke loose"))
-threshold <- 3.35
-
-local({
-  col.a <- quote(Sepal.Width)
-  sub.a <- quote(Species == 'virginica')
-  subs <- list(sub.a, quote(Species == 'versicolor'))
-
-  lapply(
-    subs,
-    function(x) subset3(iris, x & col.a > threshold, col.b:Petal.Length)
-  )
-})
-## [[1]]
-##     Sepal.Length Sepal.Width Petal.Length
-## 110          7.2         3.6          6.1
-## 118          7.7         3.8          6.7
-## 132          7.9         3.8          6.4
-## 137          6.3         3.4          5.6
-## 149          6.2         3.4          5.4
-## 
-## [[2]]
-##    Sepal.Length Sepal.Width Petal.Length
-## 86            6         3.4          4.5
-```
-
-## Related Packages
-
-[rlang](https://cran.r-project.org/package=rlang) by Lionel Henry and Hadley
-Wickham implements a more comprehensive version of programmable NSE.  In
-particular it captures NSE expression environments, which among other
-thing simplifies the NSE expression forwarding problem.  On the other hand, it
-is substantially more complex.
+* [Intro vignette]() for a more in depth introduction to `recsub`, including a
+  brief comparison to `rlang`.
+* [NSE Functions with `recsub`]() in which we recreate simplified versions of
+  `dplyr` and `data.table` that implement programmable NSE with `recsub`.
 
 ## Development Status
 
