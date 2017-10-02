@@ -8,9 +8,7 @@ recsub(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
   is.pairlist(envir)) parent.frame() else baseenv())
 }
 \arguments{
-\item{expr}{an object to be evaluated, typically a quoted language object as
-returned by \code{quote} or \code{substitute}.  \code{expr} will be recursively
-substituted by \code{recsub}.}
+\item{expr}{an object to be evaluated.  See \sQuote{Details}.}
 
 \item{envir}{the \code{\link{environment}} in which \code{expr} is to
     be evaluated.  May also be \code{NULL}, a list, a data frame,
@@ -26,18 +24,18 @@ If the input is a language object, that object with all symbols
 recursively substituted, otherwise the input unchanged.
 }
 \description{
-Recursively substitutes symbols in quoted language (i.e. \code{typeof(x) \\\%in\\\% c("expression", "language", "symbol")}) that point to quoted language objects
-until the resulting language object only contains symbols that point to
-non-language objects.  The examples are easier to understand than the prior
-sentence, so you are encouraged to look at those.
+Recursively substitutes symbols in quoted language (i.e. \code{typeof(x)} one of
+"expression", "language", "symbol") that point to quoted language objects.
+The resulting substituted language object can then be evaluated.  See
+examples.
 }
 \details{
 The expansion of quoted language via recursive substitution allows the
 implementation of programmable Non-Standard Evaluation (NSE hereafter).
 Users can create complex quoted language expressions from simple ones by
 combining them as they would tokens in standard R expressions.  Then, a
-programmable NSE aware function can use \code{recsub} or \link{evalr} to expand the
-quoted language into usable form.
+programmable NSE aware function can use \code{recsub} to expand the quoted
+language into usable form.
 
 During the recursive substitution, symbols are looked up through the search
 path in the same way as standard R evaluation looks up symbols.  One subtlety
@@ -49,6 +47,8 @@ environments of A and B's environment will be at runtime.
 
 Symbols at the first position in function calls are not substituted (i.e. in
 \code{fun(x, y)} the \code{fun} is not eligible for substitution).
+
+See examples and \code{browseVignettes('recsub')} for more details.
 }
 \examples{
 xzw <- uvt <- NULL  # make sure not lang objects
@@ -61,14 +61,21 @@ recsub(ccc)
 l <- list(bbb=quote(uvt < 9999))
 recsub(ccc, l)
 
-## But notice what happens if we use `quote(c)` instead of
-## just `c`.  This is because in this case `recsub` must
-## look for the `c` symbol in the search path, and once
-## it finds it it looks for `a` and `b` starting from the
-## environment `c` is bound to.
-
+## But notice what happens if we use `quote(ccc)` instead of
+## just `ccc`.  This is because in this case `recsub` must
+## look for the `ccc` symbol in the search path, and once
+## it finds it it looks for `aaa` and `bbb` starting from the
+## environment `ccc` is bound to, so the `bbb` defined
+## inside `l` is skipped.
 recsub(quote(ccc), l)
+
+## Implementing an NSE fun (see vignettes for detailed
+## examples)
+subset2 <- function(x, subset) {
+  subset <- recsub(substitute(subset), x, parent.frame())
+  eval(bquote(base::subset(.(x), .(subset))), parent.frame())
 }
-\seealso{
-\link{evalr}
+subset2(iris, Sepal.Width > 4.3)
+iris.sub <- quote(Sepal.Width > 4.3)
+subset2(iris, iris.sub)
 }

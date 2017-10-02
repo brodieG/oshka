@@ -51,4 +51,38 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
 
   env.proc
 }
+## Find Symbol and Environment it is Bound in
+##
+## Like `get`, except that it returns the symbol value and the environment it
+## was found in.
+##
+## @param symb.chr a character(1L) representation of symbol name
+## @param mode "any" or "function"
+## @return a list with the object and environment it was found in if there was
+##   one, NULL otherwise
+
+get_with_env <- function(symb.chr, envir, mode="any") {
+  stopifnot(mode %in% c("any", "function"), is.environment(envir))
+  if(!identical(envir, emptyenv())) {
+    # checking for NULL alone is not sufficient
+    ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
+    if(inherits(ex.try, "try-error")) {
+      # nocov start
+      stop("Internal error: exists failed, envir type: ", typeof(envir))
+      # nocov end
+    }
+    if(ex.try) {
+      obj.val <- tryCatch(
+        envir[[symb.chr]],
+        error=function(e) stop(
+          "Error evaluating promise for symbol `", symb.chr, "` in ",
+          "environment ", envir
+        )
+      )
+      if(mode == "function" && mode(obj.val) != "function") {
+        get_with_env(symb.chr, envir=parent.env(envir))
+      } else list(obj=obj.val, envir=envir)
+    } else get_with_env(symb.chr, envir=parent.env(envir))
+  }
+}
 

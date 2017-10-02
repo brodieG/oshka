@@ -33,55 +33,19 @@ recsub_int <- function(lang, envir, symbols=NULL) {
     lang
   } else lang
 }
-#' Find Symbol and Environment it is Bound in
-#'
-#' Like `get`, except that it returns the symbol value and the environment it
-#' was found in.
-#'
-#' @export
-#' @param symb.chr a character(1L) representation of symbol name
-#' @param mode "any" or "function"
-#' @return a list with the object and environment it was found in if there was
-#'   one, NULL otherwise
-
-get_with_env <- function(symb.chr, envir, mode="any") {
-  stopifnot(mode %in% c("any", "function"), is.environment(envir))
-  if(!identical(envir, emptyenv())) {
-    # checking for NULL alone is not sufficient
-    ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
-    if(inherits(ex.try, "try-error")) {
-      # nocov start
-      stop("Internal error: exists failed, envir type: ", typeof(envir))
-      # nocov end
-    }
-    if(ex.try) {
-      obj.val <- tryCatch(
-        envir[[symb.chr]],
-        error=function(e) stop(
-          "Error evaluating promise for symbol `", symb.chr, "` in ",
-          "environment ", envir
-        )
-      )
-      if(mode == "function" && mode(obj.val) != "function") {
-        get_with_env(symb.chr, envir=parent.env(envir))
-      } else list(obj=obj.val, envir=envir)
-    } else get_with_env(symb.chr, envir=parent.env(envir))
-  }
-}
 #' Recursively Substitute Symbols in Quoted Language
 #'
-#' Recursively substitutes symbols in quoted language (i.e. `typeof(x) \\%in\\%
-#' c("expression", "language", "symbol")`) that point to quoted language objects
-#' until the resulting language object only contains symbols that point to
-#' non-language objects.  The examples are easier to understand than the prior
-#' sentence, so you are encouraged to look at those.
+#' Recursively substitutes symbols in quoted language (i.e. `typeof(x)` one of
+#' "expression", "language", "symbol") that point to quoted language objects.
+#' The resulting substituted language object can then be evaluated.  See
+#' examples.
 #'
 #' The expansion of quoted language via recursive substitution allows the
 #' implementation of programmable Non-Standard Evaluation (NSE hereafter).
 #' Users can create complex quoted language expressions from simple ones by
 #' combining them as they would tokens in standard R expressions.  Then, a
-#' programmable NSE aware function can use `recsub` or [evalr] to expand the
-#' quoted language into usable form.
+#' programmable NSE aware function can use `recsub` to expand the quoted
+#' language into usable form.
 #'
 #' During the recursive substitution, symbols are looked up through the search
 #' path in the same way as standard R evaluation looks up symbols.  One subtlety
@@ -94,9 +58,10 @@ get_with_env <- function(symb.chr, envir, mode="any") {
 #' Symbols at the first position in function calls are not substituted (i.e. in
 #' `fun(x, y)` the `fun` is not eligible for substitution).
 #'
+#' See examples and `browseVignettes('recsub')` for more details.
+#'
 #' @export
-#' @seealso [evalr]
-#' @inheritParams evalr
+#' @inheritParams base::eval
 #' @return If the input is a language object, that object with all symbols
 #'   recursively substituted, otherwise the input unchanged.
 #' @examples
@@ -110,13 +75,23 @@ get_with_env <- function(symb.chr, envir, mode="any") {
 #' l <- list(bbb=quote(uvt < 9999))
 #' recsub(ccc, l)
 #'
-#' ## But notice what happens if we use `quote(c)` instead of
-#' ## just `c`.  This is because in this case `recsub` must
-#' ## look for the `c` symbol in the search path, and once
-#' ## it finds it it looks for `a` and `b` starting from the
-#' ## environment `c` is bound to.
-#'
+#' ## But notice what happens if we use `quote(ccc)` instead of
+#' ## just `ccc`.  This is because in this case `recsub` must
+#' ## look for the `ccc` symbol in the search path, and once
+#' ## it finds it it looks for `aaa` and `bbb` starting from the
+#' ## environment `ccc` is bound to, so the `bbb` defined
+#' ## inside `l` is skipped.
 #' recsub(quote(ccc), l)
+#'
+#' ## Implementing an NSE fun (see vignettes for detailed
+#' ## examples)
+#' subset2 <- function(x, subset) {
+#'   subset <- recsub(substitute(subset), x, parent.frame())
+#'   eval(bquote(base::subset(.(x), .(subset))), parent.frame())
+#' }
+#' subset2(iris, Sepal.Width > 4.3)
+#' iris.sub <- quote(Sepal.Width > 4.3)
+#' subset2(iris, iris.sub)
 
 recsub <- function(
   expr, envir=parent.frame(),
