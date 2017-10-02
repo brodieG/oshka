@@ -84,18 +84,12 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li><a href="#examples-1">Examples</a></li>
 </ul></li>
 <li><a href="#appendix">Appendix</a></li>
-<li><a href="#references">References</a></li>
 </ul>
 </div>
 
 <div id="overview" class="section level2">
 <h2>Overview</h2>
 <p>We will implement simplified versions of <code>dplyr</code> and <code>data.table</code> to illustrate how to write programmable NSE functions with <code>recsub</code>. The implementations are intentionally limited in functionality, robustness, and speed for the sake of simplicity.</p>
-<p>Our test data is derived from the <code>state</code> dataset that comes pre-loaded with R:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(state.data, <span class="dv">2</span>)</code></pre></div>
-<pre><code>    State Region Population Income Illiteracy has_nfl
-1 Alabama  South       3615   3624        2.1   FALSE
-2  Alaska   West        365   6315        1.5   FALSE</code></pre>
 </div>
 <div id="an-ersatz-dplyr" class="section level2">
 <h2>An Ersatz <code>dplyr</code></h2>
@@ -107,13 +101,15 @@ filter_r &lt;-<span class="st"> </span>function(x, subset) {...} <span class="co
 summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co"># similar to dplyr::summarise</span>
 <span class="st">`</span><span class="dt">%$%</span><span class="st">`</span> &lt;-<span class="st"> </span>function(x, y) {...}         <span class="co"># similar to the magrittr pipe</span></code></pre></div>
 <p>Our functions mimic the corresponding <code>dplyr</code> ones:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">state.data %$%
-<span class="st">  </span><span class="kw">filter_r</span>(Region %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">'Northeast'</span>, <span class="st">'South'</span>)) %$%
-<span class="st">  </span><span class="kw">group_r</span>(Region) %$%
-<span class="st">  </span><span class="kw">summarize_r</span>(<span class="kw">weighted.mean</span>(Income, Population))</code></pre></div>
-<pre><code>     Region   V1
-1 Northeast 4802
-2     South 4121</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">CO2 %$%
+<span class="st">  </span><span class="kw">filter_r</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant)) %$%
+<span class="st">  </span><span class="kw">group_r</span>(Type, Treatment) %$%
+<span class="st">  </span><span class="kw">summarize_r</span>(<span class="kw">mean</span>(conc), <span class="kw">mean</span>(uptake))</code></pre></div>
+<pre><code>         Type  Treatment mean.conc. mean.uptake.
+1      Quebec nonchilled        435     34.19286
+2 Mississippi nonchilled        435     26.87143
+3      Quebec    chilled        435     31.33571
+4 Mississippi    chilled        435     15.07143</code></pre>
 </div>
 <div id="implementation" class="section level3">
 <h3>Implementation</h3>
@@ -160,24 +156,30 @@ summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co
 <div id="examples" class="section level3">
 <h3>Examples</h3>
 <p>That single <code>rescub</code> line enables a programmable NSE:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Region %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">'Northeast'</span>, <span class="st">'South'</span>))
-s.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">weighted.mean</span>(Income, Population))
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant))
+s.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">mean</span>(uptake))
 
-state.data %$%
-<span class="st">  </span><span class="kw">filter_r</span>(f.exp &amp;<span class="st"> </span>Population &gt;<span class="st"> </span><span class="dv">1000</span>) %$%
-<span class="st">  </span><span class="kw">group_r</span>(Region) %$%
+CO2 %$%
+<span class="st">  </span><span class="kw">filter_r</span>(f.exp &amp;<span class="st"> </span>conc &gt;<span class="st"> </span><span class="dv">500</span>) %$%
+<span class="st">  </span><span class="kw">group_r</span>(Type, Treatment) %$%
 <span class="st">  </span><span class="kw">summarize_r</span>(<span class="kw">round</span>(s.exp))</code></pre></div>
-<pre><code>     Region   V1
-1 Northeast 4825
-2     South 4115</code></pre>
+<pre><code>         Type  Treatment round.mean.uptake..
+1      Quebec nonchilled                  41
+2 Mississippi nonchilled                  33
+3      Quebec    chilled                  38
+4 Mississippi    chilled                  18</code></pre>
 <p>Because <code>%$%</code> uses <code>recsub</code> too you can even do the following:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">filter_r</span>(f.exp &amp;<span class="st"> </span>Population &gt;<span class="st"> </span><span class="dv">1000</span>))
-grp.and.sum &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">group_r</span>(Region) %$%<span class="st"> </span><span class="kw">summarize_r</span>(<span class="kw">round</span>(s.exp)))
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">filter_r</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant) &amp;<span class="st"> </span>conc &gt;<span class="st"> </span><span class="dv">500</span>))
+g.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">group_r</span>(Type, Treatment))
+s.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">summarize_r</span>(<span class="kw">mean</span>(conc), <span class="kw">mean</span>(uptake)))
+exp &lt;-<span class="st"> </span><span class="kw">quote</span>(f.exp.b %$%<span class="st"> </span>g.exp.b %$%<span class="st"> </span>s.exp.b)
 
-state.data %$%<span class="st"> </span>flt %$%<span class="st"> </span>grp.and.sum</code></pre></div>
-<pre><code>     Region   V1
-1 Northeast 4825
-2     South 4115</code></pre>
+CO2 %$%<span class="st"> </span>exp</code></pre></div>
+<pre><code>         Type  Treatment mean.conc. mean.uptake.
+1      Quebec nonchilled      837.5       41.150
+2 Mississippi nonchilled      837.5       32.625
+3      Quebec    chilled      837.5       38.500
+4 Mississippi    chilled      837.5       18.050</code></pre>
 </div>
 </div>
 <div id="an-ersatz-data.table" class="section level2">
@@ -202,61 +204,67 @@ state.data %$%<span class="st"> </span>flt %$%<span class="st"> </span>grp.and.s
 <div id="examples-1" class="section level3">
 <h3>Examples</h3>
 <p>After we add the <code>super_df</code> class to our data we can start using it with <code>data.table</code> semantics, but with programmable NSE:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sd &lt;-<span class="st"> </span><span class="kw">as.super_df</span>(state.data)
-sd[f.exp, s.exp, by=Region]</code></pre></div>
-<pre><code>     Region   V1
-1 Northeast 4802
-2     South 4121</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.a &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">max</span>(Illiteracy))
-exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">min</span>(Illiteracy))
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">co2 &lt;-<span class="st"> </span><span class="kw">as.super_df</span>(CO2)
+co2[f.exp, s.exp, by=Type]</code></pre></div>
+<pre><code>         Type mean.uptake.
+1      Quebec     32.76429
+2 Mississippi     20.97143</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.a &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">max</span>(conc))
+exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">min</span>(conc))
 
-sd[f.exp, <span class="kw">list</span>(exp.a, exp.b), by=<span class="kw">list</span>(Region, HasNfl)][<span class="dv">1</span>:<span class="dv">3</span>,]</code></pre></div>
-<pre><code>Error in FUN(X[[i]], ...): object 'HasNfl' not found</code></pre>
+co2[f.exp, <span class="kw">list</span>(exp.a, exp.b), by=<span class="kw">list</span>(Type, Treatment)][<span class="dv">1</span>:<span class="dv">3</span>,]</code></pre></div>
+<pre><code>         Type  Treatment max.conc. min.conc.
+1      Quebec nonchilled      1000        95
+2 Mississippi nonchilled      1000        95
+3      Quebec    chilled      1000        95</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.c &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">list</span>(exp.a, exp.b))
-exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">list</span>(Region, HasNfl))
+exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">list</span>(Type, Treatment))
 
-sd[f.exp, exp.c, by=exp.d][<span class="dv">1</span>:<span class="dv">3</span>,]</code></pre></div>
-<pre><code>Error in FUN(X[[i]], ...): object 'HasNfl' not found</code></pre>
+co2[f.exp, exp.c, by=exp.d][<span class="dv">1</span>:<span class="dv">3</span>,]</code></pre></div>
+<pre><code>         Type  Treatment max.conc. min.conc.
+1      Quebec nonchilled      1000        95
+2 Mississippi nonchilled      1000        95
+3      Quebec    chilled      1000        95</code></pre>
 <p>Despite the forwarding layers the symbols resolve as expected in complex circumstances:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exps &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">list</span>(<span class="kw">stop</span>(<span class="st">&quot;boo&quot;</span>), <span class="kw">stop</span>(<span class="st">&quot;ya&quot;</span>)))  <span class="co"># don't use this</span>
-g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(State)                         <span class="co"># nor this</span>
+g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Whatever)                         <span class="co"># nor this</span>
 
 <span class="kw">local</span>({
   summarize_r_l &lt;-<span class="st"> </span>function(x, y) <span class="kw">stop</span>(<span class="st">&quot;boom&quot;</span>)  <span class="co"># nor this</span>
-  max.inc &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">max</span>(Income))                 <span class="co"># use this</span>
-  min.inc &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">min</span>(Income))                 <span class="co"># and this</span>
-  exps &lt;-<span class="st"> </span><span class="kw">list</span>(max.inc, min.inc)
+  max.upt &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">max</span>(uptake))                 <span class="co"># use this</span>
+  min.upt &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">min</span>(uptake))                 <span class="co"># and this</span>
+  exps &lt;-<span class="st"> </span><span class="kw">list</span>(max.upt, min.upt)
 
-  g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Region)                        <span class="co"># and this</span>
+  g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Treatment)                        <span class="co"># and this</span>
 
-  <span class="kw">lapply</span>(exps, function(y) sd[f.exp, y, <span class="dt">by=</span>g.exp])
+  <span class="kw">lapply</span>(exps, function(y) co2[f.exp, y, <span class="dt">by=</span>g.exp])
 })</code></pre></div>
 <pre><code>[[1]]
-     Region max.Income.
-1 Northeast        5348
-2     South        5299
+   Treatment max.uptake.
+1 nonchilled        44.3
+2    chilled        42.4
 
 [[2]]
-     Region min.Income.
-1 Northeast        3694
-2     South        3098</code></pre>
+   Treatment min.uptake.
+1 nonchilled        10.6
+2    chilled         7.7</code></pre>
 <p>And we can even nest our <code>dplyr</code> and <code>data.table</code> for an unholy abomination:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">data.frame</span>(<span class="dt">pop=</span>Population) %$%<span class="st"> </span><span class="kw">summarize_r</span>(<span class="dt">new.pop=</span>pop *<span class="st"> </span><span class="fl">1.2</span>))
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">data.frame</span>(<span class="dt">upt=</span>uptake) %$%<span class="st"> </span><span class="kw">summarize_r</span>(<span class="dt">new.upt=</span>upt *<span class="st"> </span><span class="fl">1.2</span>))
 
 <span class="kw">local</span>({
-  exps &lt;-<span class="st"> </span><span class="kw">list</span>(<span class="kw">quote</span>(<span class="kw">sum</span>(exp$new.pop)), <span class="kw">quote</span>(<span class="kw">sum</span>(Population)))
-  g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Region)
-  <span class="kw">lapply</span>(exps, function(y) sd[f.exp, y, <span class="dt">by=</span>g.exp])
+  exps &lt;-<span class="st"> </span><span class="kw">list</span>(<span class="kw">quote</span>(<span class="kw">sum</span>(exp$new.upt)), <span class="kw">quote</span>(<span class="kw">sum</span>(uptake)))
+  g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Treatment)
+  <span class="kw">lapply</span>(exps, function(y) co2[f.exp, y, <span class="dt">by=</span>g.exp])
 })</code></pre></div>
 <pre><code>[[1]]
-     Region    V1
-1 Northeast 59347
-2     South 80796
+   Treatment      V1
+1 nonchilled 1025.88
+2    chilled  779.64
 
 [[2]]
-     Region sum.Population.
-1 Northeast           49456
-2     South           67330</code></pre>
+   Treatment sum.uptake.
+1 nonchilled       854.9
+2    chilled       649.7</code></pre>
 </div>
 </div>
 <div id="appendix" class="section level2">
@@ -296,8 +304,8 @@ group_r_l &lt;-<span class="st"> </span>function(x, els) {
 <span class="co"># -- Filtering -----------------------------------------------------------------</span>
 
 filter_r &lt;-<span class="st"> </span>function(x, subset) {
-  sub.exp &lt;-<span class="st"> </span><span class="kw">substitute</span>(subset)
-  sub.val &lt;-<span class="st"> </span><span class="kw">evalr</span>(sub.exp, <span class="dt">envir=</span>x, <span class="dt">enclos=</span><span class="kw">parent.frame</span>())
+  sub.exp &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
+  sub.val &lt;-<span class="st"> </span><span class="kw">eval</span>(sub.exp, x, <span class="kw">parent.frame</span>())
   <span class="kw">as.data.frame</span>(
     if(!<span class="kw">is.null</span>(sub.val)) {
       <span class="kw">as.data.frame</span>(x)[
@@ -357,9 +365,6 @@ list_to_df &lt;-<span class="st"> </span>function(dat, grp, splits) {
     <span class="kw">lapply</span>(<span class="kw">c</span>(grp, dat), function(x) <span class="kw">unname</span>(<span class="kw">unlist</span>(<span class="kw">Map</span>(rep_len, x, lens))))
   )
 }</code></pre></div>
-</div>
-<div id="references" class="section level2">
-<h2>References</h2>
 </div>
 
 

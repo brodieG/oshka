@@ -36,9 +36,9 @@ recsub_int <- function(lang, envir, symbols=NULL) {
 #' Recursively Substitute Symbols in Quoted Language
 #'
 #' Recursively substitutes symbols in quoted language (i.e. `typeof(x)` one of
-#' "expression", "language", "symbol") that point to quoted language objects
-#' until the resulting language object only contains symbols that point to
-#' non-language objects.  See examples.
+#' "expression", "language", "symbol") that point to quoted language objects.
+#' The resulting substituted language object can then be evaluated.  See
+#' examples.
 #'
 #' The expansion of quoted language via recursive substitution allows the
 #' implementation of programmable Non-Standard Evaluation (NSE hereafter).

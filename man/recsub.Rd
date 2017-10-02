@@ -25,9 +25,9 @@ recursively substituted, otherwise the input unchanged.
 }
 \description{
 Recursively substitutes symbols in quoted language (i.e. \code{typeof(x)} one of
-"expression", "language", "symbol") that point to quoted language objects
-until the resulting language object only contains symbols that point to
-non-language objects.  See examples.
+"expression", "language", "symbol") that point to quoted language objects.
+The resulting substituted language object can then be evaluated.  See
+examples.
 }
 \details{
 The expansion of quoted language via recursive substitution allows the
