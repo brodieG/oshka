@@ -1,4 +1,3 @@
-
 ## ---- summarize_r ----
 
 summarize_r <- function(x, ...)
