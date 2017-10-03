@@ -7,22 +7,19 @@
 recsub_int <- function(lang, envir, symbols=NULL) {
   if(is.symbol(lang)) {
     symb.as.chr <- as.character(lang)
-    if(nzchar(symb.as.chr)) {
-      if(symb.as.chr %in% symbols)
-        stop(
-          "Potential infinite recursion detected substituting symbol `",
-          symb.as.chr, "`"
-        )
+    if(symb.as.chr %in% symbols)
+      stop(
+        "Potential infinite recursion detected substituting symbol `",
+        symb.as.chr, "`"
+      )
 
-      lang.sub <- get_with_env(symb.as.chr, envir=envir)
+    lang.sub <- get_with_env(symb.as.chr, envir=envir)
 
-      if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
-        # track all symbols detected at this env level so we can detect an
-        # infinite recursion
-        symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
-        recsub_int(lang.sub$obj, envir=lang.sub$envir, symbols=symbols)
-      }
-      else lang
+    if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
+      # track all symbols detected at this env level so we can detect an
+      # infinite recursion
+      symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
+      recsub_int(lang.sub$obj, envir=lang.sub$envir, symbols=symbols)
     } else lang
   } else if (is.language(lang)) {
     lang.el.seq <- seq_along(lang)
