@@ -94,10 +94,11 @@ recsub <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv()
 ) {
-  if(!is.language(expr)) {
-    expr
+  exp.sub <- eval(bquote(substitute(.(substitute(expr)))), parent.frame())
+  if(!is.language(exp.sub)) {
+    exp.sub
   } else {
     envir.proc <- env_resolve(envir, enclos, internal=TRUE)
-    recsub_int(expr, envir=envir.proc, symbols=character())
+    recsub_int(exp.sub, envir=envir.proc, symbols=character())
   }
 }
