@@ -12,9 +12,9 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
   env.proc <- if(!is.environment(envir)) {
     if(!is.list(envir) && !is.pairlist(envir) && !is.numeric(envir)) {
       stop(
-        "Argument `envir` must be `environment`, `list`, `pairlist`, ",
-        "or `numeric`",
-        call=sys.call(-2)
+        'Argument "envir" must be "environment", "list", "pairlist", ',
+        'or "numeric" (is "', typeof(envir), '")',
+        call.=sys.call(-2)
       )
     }
     # In theory this should not copy any of the contents of the list or pair

@@ -12,7 +12,7 @@ unitizer_sect("Env levels", {
       aHrXaasBHJEJKdf <- "inner-level"
       c(
         eval=eval(quote(aHrXaasBHJEJKdf), n),
-        evalr=evalr(quote(aHrXaasBHJEJKdf), n)
+        evalr=eval(recsub(quote(aHrXaasBHJEJKdf), n), n)
       )
     })
   }
@@ -21,4 +21,18 @@ unitizer_sect("Env levels", {
   fun(-3)
   fun(-8)
   fun(-9)
+})
+unitizer_sect("Functions", {
+  imafun <- function() NULL
+  local({
+    imafun <- TRUE
+    recsub:::get_with_env("imafun", envir=environment())
+  })
+  local({
+    imafun <- TRUE
+    recsub:::get_with_env("imafun", envir=environment(), mode="function")
+  })
+})
+unitizer_sect("Errors", {
+  recsub:::env_resolve(letters, new.env())
 })
