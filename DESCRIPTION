@@ -4,7 +4,7 @@ Description: Provides tools that can be used implement programmable Non-Standard
     Evaluation (NSE).  `recsub` expands symbols in quoted language that point to
     language objects.  This allows users to store language in variables that can
     then be automatically injected into other language expressions.
-Version: 0.0.1.9002
+Version: 0.0.1.9003
 Authors@R: c(
     person("Brodie", "Gaslam", email="brodie.gaslam@yahoo.com",
     role=c("aut", "cre"))
