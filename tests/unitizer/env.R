@@ -12,7 +12,7 @@ unitizer_sect("Env levels", {
       aHrXaasBHJEJKdf <- "inner-level"
       c(
         eval=eval(quote(aHrXaasBHJEJKdf), n),
-        evalr=evalr(quote(aHrXaasBHJEJKdf), n)
+        evalr=eval(recsub(quote(aHrXaasBHJEJKdf), n), n)
       )
     })
   }
