@@ -15,8 +15,8 @@ vignette: >
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
 library(recsub)
-read_chunk('./rhunks/extras.R')
-``````
+knitr::read_chunk('../tests/helper/ersatz.R')
+```
 
 ## Overview
 
@@ -149,11 +149,11 @@ We wish to re-use our ersatz `dplyr` functions to create a `data.table`-like
 interface:
 
 ```{r}
-
+<<super_df>>
 ```
 
 Again, we use the `eval`/`bquote` pattern to forward the NSE arguments to our
-NSE functions `filter_r_l`, `group_r_l`, and `summarize_r_l`.  The pattern
+NSE functions `filter_r`, `group_r_l`, and `summarize_r_l`.  The pattern
 is not trivial, but it only took six lines of code to transmogrify our
 faux-`dplyr` into a faux-`data.table`.
 
@@ -215,10 +215,6 @@ local({
 
 Ersatz `dplyr` implementation.
 
-```{r dplyr_extra_0, eval=FALSE}
+```{r eval=FALSE}
+<<fo_dplyr_extra>>
 ```
-```{r dplyr_extra_1, eval=FALSE}
-```
-```{r dplyr_extra_2, eval=FALSE}
-```
-
