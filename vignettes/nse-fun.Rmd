@@ -213,8 +213,12 @@ local({
 
 ## Appendix
 
-Ersatz `dplyr` implementation.
+Ersatz `dplyr` implementation:
 
 ```{r eval=FALSE}
+## - Summarize ----------------------------------------------------------------- 
+
+<<summarize_r>>
+<<summarize_r_l>>
 <<fo_dplyr_extra>>
 ```

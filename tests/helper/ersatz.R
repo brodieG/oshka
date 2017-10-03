@@ -25,6 +25,8 @@ summarize_r_l <- function(x, els) {
 }
 ## ---- fo_dplyr_extra ----
 
+## - Grouping ------------------------------------------------------------------ 
+
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
@@ -34,7 +36,7 @@ group_r_l <- function(x, els) {
       exps.sub <- call("list", exps.sub)
     structure(x, .GRP=dot_list(exps.sub, "G"))
 } }
-# Filtering
+## - Filtering -----------------------------------------------------------------
 
 filter_r <- function(x, subset) {
   sub.exp <- recsub(substitute(subset), x, parent.frame())
@@ -47,7 +49,7 @@ filter_r <- function(x, subset) {
     } else x
   )
 }
-# Pipe
+## - Pipe ----------------------------------------------------------------------
 
 `%$%` <- function(x, y) {
   x.sub <- recsub(substitute(x), parent.frame())
@@ -55,7 +57,7 @@ filter_r <- function(x, subset) {
   y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
   eval(sub_dat(y.sub, x), parent.frame())
 }
-# Helper Funs
+## - Helper Funs ---------------------------------------------------------------
 
 # Takes result of `substitute(list(...))` and returns a list of quoted language
 # object with nice names.
