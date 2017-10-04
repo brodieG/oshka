@@ -23,7 +23,10 @@ unitizer_sect("Env levels", {
   fun(-9)
 })
 unitizer_sect("Functions", {
-  imafun <- function() NULL
+  ## some stuff gets funky here with `all.equal` in the environment since the
+  ## environment being compared is this one, so any objects that we add
+  ## automatically breaks the tests
+  imafun <- imafun2 <- function() NULL
   local({
     imafun <- TRUE
     recsub:::get_with_env("imafun", envir=environment())
@@ -31,6 +34,10 @@ unitizer_sect("Functions", {
   local({
     imafun <- TRUE
     recsub:::get_with_env("imafun", envir=environment(), mode="function")
+  })
+  local({
+    imafun2 <- quote(a + b)
+    recsub:::get_with_env("imafun2", envir=environment(), mode="function")
   })
 })
 unitizer_sect("Errors", {

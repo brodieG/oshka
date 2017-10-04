@@ -80,7 +80,9 @@ get_with_env <- function(symb.chr, envir, mode="any") {
         )
       )
       if(
-        mode == "function" && !mode(obj.val) %in%  c("function", "name")
+        mode == "function" && (
+          mode(obj.val) != "function" && !is.language(obj.val)
+        )
       ) {
         get_with_env(symb.chr, envir=parent.env(envir))
       } else list(obj=obj.val, envir=envir)

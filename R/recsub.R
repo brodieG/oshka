@@ -36,30 +36,31 @@ recsub_int <- function(lang, envir, symbols=NULL, mode) {
     lang
   } else lang
 }
-#' Recursively Substitute Symbols in Quoted Language
+#' Recursively Expands Symbols in Quoted Language
 #'
-#' Recursively substitutes symbols in quoted language (i.e. `typeof(x)` one of
+#' Recursively Expands symbols in quoted language (i.e. `typeof(x)` one of
 #' "expression", "language", "symbol") that point to quoted language objects.
 #' The resulting substituted language object can then be evaluated.  See
 #' examples.
 #'
-#' The expansion of quoted language via recursive substitution allows the
-#' implementation of programmable Non-Standard Evaluation (NSE hereafter).
-#' Users can create complex quoted language expressions from simple ones by
-#' combining them as they would tokens in standard R expressions.  Then, a
-#' programmable NSE aware function can use `recsub` to expand the quoted
-#' language into usable form.
+#' The recursive expansion of quoted language via allows the implementation of
+#' programmable Non-Standard Evaluation (NSE hereafter).  Users can create
+#' complex quoted language expressions from simple ones by combining them as
+#' they would tokens in standard R expressions.  Then, a programmable NSE aware
+#' function can use `recsub` to expand the quoted language into usable form.
 #'
-#' During the recursive substitution, symbols are looked up through the search
+#' During the recursive expansion, symbols are looked up through the search
 #' path in the same way as standard R evaluation looks up symbols.  One subtlety
 #' is that if symbol A expands to a language object B, the symbols in
 #' language object B are looked for starting from the environment that A is
-#' bound to, not the topmost environment.  This is because presumably the
-#' process that resulted in language object B cannot be aware of what the child
-#' environments of A and B's environment will be at runtime.
+#' bound to, not the initial evaluation environment.
 #'
-#' Symbols at the first position in function calls are not substituted (i.e. in
-#' `fun(x, y)` the `fun` is not eligible for substitution).
+#' Symbols at the first position in calls (e.g. `fun` in `fun(x, y)`) are
+#' expanded slightly differently: they will continue to be expanded until an
+#' object of mode "function" is found.  This is to follow the semantics of
+#' symbol searches in R where a symbol pointing to a non-function object will
+#' not mask a symbol pointing to a function object when it is used as the name
+#' of the function in a call.
 #'
 #' See examples and `browseVignettes('recsub')` for more details.
 #'
