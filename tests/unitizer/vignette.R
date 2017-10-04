@@ -1,4 +1,4 @@
-library(recsub)
+library(matrioshka)
 
 # these tests are from the nse-fun vignette
 

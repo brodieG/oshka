@@ -22,7 +22,7 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
 
     if(is.numeric(envir)) {
       # In internal mode we need to subtract one from negative numbers because
-      # we are calling this fun from within `evalr` or `recsub`.  We only need
+      # we are calling this fun from within `expand`.  We only need
       # to do these for strictly neg numbers b/c all others are absolute
       # starting from root of calls
 

@@ -2,15 +2,15 @@
 
 
 
-# recsub - Programmable Non-Standard Evaluation
+# matrioshka - Simple Programmable NSE
 
-[![](https://travis-ci.org/brodieG/recsub.svg?branch=master)](https://travis-ci.org/brodieG/recsub)
-[![](https://codecov.io/github/brodieG/recsub/coverage.svg?branch=master)](https://codecov.io/github/brodieG/recsub?branch=master)
-[![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
+[![](https://travis-ci.org/brodieG/matrioshka.svg?branch=master)](https://travis-ci.org/brodieG/matrioshka)
+[![](https://codecov.io/github/brodieG/matrioshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/matrioshka?branch=master)
+[![](http://www.r-pkg.org/badges/version/matrioshka)](https://cran.r-project.org/package=matrioshka)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
 
-## Programmable NSE
+## Programmable Non-Standard Evaluation
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -36,13 +36,13 @@ subset(iris, my.exp.a)
 ## Error in subset.data.frame(iris, my.exp.a): 'subset' must be logical
 ```
 
-`recsub` facilitates programmable NSE, as with this simplified version of
+`expand` facilitates programmable NSE, as with this simplified version of
 `subset`:
 
 
 ```r
 subset2 <- function(x, subset) {
-  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.exp <- expand(substitute(subset), x, parent.frame())
   sub.val <- eval(sub.exp, x, parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
@@ -52,7 +52,7 @@ subset2(iris, my.exp.a)
 ## 34          5.5         4.2          1.4         0.2  setosa
 ```
 
-`recsub` is recursive:
+`expand` is recursive:
 
 
 ```r
@@ -70,28 +70,26 @@ We abide by R semantics so that programmable NSE functions are almost
 identical to normal NSE functions, with programmability as a bonus.
 
 
-## Additional Documentation
+## Documentation
 
 * [Intro
-  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/introduction.html)
-  for a more in depth introduction to `recsub`, including a brief comparison to
+  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/matrioshka/blob/master/inst/doc/introduction.html)
+  for a more in depth introduction to `matrioshka`, including a brief comparison to
   `rlang`.
 * [NSE Functions with
-  `recsub`](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/nse-fun.html)
+  `matrioshka`](http://htmlpreview.github.io/?https://github.com/brodieG/matrioshka/blob/master/inst/doc/nse-fun.html)
   in which we recreate simplified versions of `dplyr` and `data.table` that
-  implement programmable NSE with `recsub`.
+  implement programmable NSE with `matrioshka::expand`.
 
-## Development Status
-
-This package is proof-of-concept.  Feedback is welcome, particularly if you are
-aware of some NSE pitfalls we may be ignoring.
-
-Currently this package is only available on github:
+## Installation
 
 
 ```r
-devtools::install_github('brodieg/recsub')
+install.packages('matrioshka')
 ```
+
+This package is proof-of-concept.  Feedback is welcome, particularly if you are
+aware of some NSE pitfalls we may be ignoring.
 
 ## Acknowledgements
 
@@ -115,4 +113,12 @@ devtools::install_github('brodieg/recsub')
   Allaire](https://github.com/jjallaire) etal for
   [rmarkdown](https://cran.r-project.org/package=rmarkdown), and by extension
   John MacFarlane for [pandoc](http://pandoc.org/).
+
+## About
+
+Brodie Gaslam is a hobbyist programmer based on the US East Coast.
+
+The recursive substitution of symbols evokes Russian nesting dolls, hence
+the name of the package.  We would have preferred to name the `expand` function
+`unnest`, but the symbol is already in use in the popular `tidyr` package.
 

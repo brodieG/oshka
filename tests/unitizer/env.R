@@ -1,4 +1,4 @@
-library(recsub)
+library(matrioshka)
 
 unitizer_sect("Env levels", {
   ## Key thing here is that we get the same answer from eval and evalr, we use
@@ -12,7 +12,7 @@ unitizer_sect("Env levels", {
       aHrXaasBHJEJKdf <- "inner-level"
       c(
         eval=eval(quote(aHrXaasBHJEJKdf), n),
-        evalr=eval(recsub(quote(aHrXaasBHJEJKdf), n), n)
+        evalr=eval(expand(quote(aHrXaasBHJEJKdf), n), n)
       )
     })
   }
@@ -29,17 +29,17 @@ unitizer_sect("Functions", {
   imafun <- imafun2 <- function() NULL
   local({
     imafun <- TRUE
-    recsub:::get_with_env("imafun", envir=environment())
+    matrioshka:::get_with_env("imafun", envir=environment())
   })
   local({
     imafun <- TRUE
-    recsub:::get_with_env("imafun", envir=environment(), mode="function")
+    matrioshka:::get_with_env("imafun", envir=environment(), mode="function")
   })
   local({
     imafun2 <- quote(a + b)
-    recsub:::get_with_env("imafun2", envir=environment(), mode="function")
+    matrioshka:::get_with_env("imafun2", envir=environment(), mode="function")
   })
 })
 unitizer_sect("Errors", {
-  recsub:::env_resolve(letters, new.env())
+  matrioshka:::env_resolve(letters, new.env())
 })

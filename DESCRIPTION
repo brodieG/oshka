@@ -1,4 +1,4 @@
-Package: marioshka
+Package: matrioshka
 Title: Programmable Non-Standard Evaluation
 Description: Expands quoted language by recursively replacing any symbols that
     point to language objects with that language.  Users can construct complex

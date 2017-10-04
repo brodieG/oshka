@@ -7,7 +7,7 @@ summarize_r <- function(x, ...)
 
 summarize_r_l <- function(x, els) {
   frm <- parent.frame()
-  exps.sub <- recsub(substitute(els), x, frm)
+  exps.sub <- expand(substitute(els), x, frm)
   if(is.null(exps.sub)) x else {
     # compute groups and splits
     grps <- make_grps(x)        # see appendix
@@ -30,7 +30,7 @@ summarize_r_l <- function(x, els) {
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
-  exps.sub <- recsub(substitute(els), x, parent.frame())
+  exps.sub <- expand(substitute(els), x, parent.frame())
   if(is.null(exps.sub)) x else {
     if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
       exps.sub <- call("list", exps.sub)
@@ -39,7 +39,7 @@ group_r_l <- function(x, els) {
 ## - Filtering -----------------------------------------------------------------
 
 filter_r <- function(x, subset) {
-  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.exp <- expand(substitute(subset), x, parent.frame())
   sub.val <- eval(sub.exp, x, parent.frame())
   as.data.frame(
     if(!is.null(sub.val)) {
@@ -52,8 +52,8 @@ filter_r <- function(x, subset) {
 ## - Pipe ----------------------------------------------------------------------
 
 `%$%` <- function(x, y) {
-  x.sub <- recsub(substitute(x), parent.frame())
-  y.sub <- recsub(substitute(y), parent.frame())
+  x.sub <- expand(substitute(x), parent.frame())
+  y.sub <- expand(substitute(y), parent.frame())
   y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
   eval(sub_dat(y.sub, x), parent.frame())
 }
