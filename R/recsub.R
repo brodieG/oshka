@@ -105,6 +105,6 @@ recsub <- function(
     expr
   } else {
     envir.proc <- env_resolve(envir, enclos, internal=TRUE)
-    recsub_int(expr, envir=envir.proc, symbols=character())
+    recsub_int(expr, envir=envir.proc, symbols=character(), mode="any")
   }
 }
