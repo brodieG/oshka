@@ -199,7 +199,7 @@ CO2 %$%<span class="st"> </span>exp</code></pre></div>
   x &lt;-<span class="st"> </span><span class="kw">eval</span>(<span class="kw">bquote</span>(.(summarize_r_l)(.(x),  .(<span class="kw">substitute</span>(j)))), frm)
   <span class="kw">as.super_df</span>(x)
 }</code></pre></div>
-<p>Again, we use the <code>eval</code>/<code>bquote</code> pattern to forward the NSE arguments to our NSE functions <code>filter_r_l</code>, <code>group_r_l</code>, and <code>summarize_r_l</code>. The pattern is not trivial, but it only took six lines of code to transmogrify our faux-<code>dplyr</code> into a faux-<code>data.table</code>.</p>
+<p>Again, we use the <code>eval</code>/<code>bquote</code> pattern to forward the NSE arguments to our NSE functions <code>filter_r</code>, <code>group_r_l</code>, and <code>summarize_r_l</code>. The pattern is not trivial, but it only took six lines of code to transmogrify our faux-<code>dplyr</code> into a faux-<code>data.table</code>.</p>
 </div>
 <div id="examples-1" class="section level3">
 <h3>Examples</h3>
@@ -269,10 +269,12 @@ g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Whatever)     
 </div>
 <div id="appendix" class="section level2">
 <h2>Appendix</h2>
-<p>Ersatz <code>dplyr</code> implementation.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">summarize_r &lt;-<span class="st"> </span>function(x, ...)
-  <span class="kw">eval</span>(<span class="kw">bquote</span>(.(summarize_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">summarize_r_l &lt;-<span class="st"> </span>function(x, els) {
+<p>Ersatz <code>dplyr</code> implementation:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## - Summarize ----------------------------------------------------------------- 
+
+summarize_r &lt;-<span class="st"> </span>function(x, ...)
+  <span class="kw">eval</span>(<span class="kw">bquote</span>(.(summarize_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())
+summarize_r_l &lt;-<span class="st"> </span>function(x, els) {
   frm &lt;-<span class="st"> </span><span class="kw">parent.frame</span>()
   exps.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(els), x, frm)
   if(<span class="kw">is.null</span>(exps.sub)) x else {
@@ -289,8 +291,8 @@ g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Whatever)     
     )
     <span class="kw">list_to_df</span>(res.list, grp.split, splits)   <span class="co"># see appendix</span>
   }
-}</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># -- Grouping ------------------------------------------------------------------</span>
+}
+## - Grouping ------------------------------------------------------------------ 
 
 group_r &lt;-<span class="st"> </span>function(x, ...)
   <span class="kw">eval</span>(<span class="kw">bquote</span>(.(group_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())
@@ -301,7 +303,7 @@ group_r_l &lt;-<span class="st"> </span>function(x, els) {
       exps.sub &lt;-<span class="st"> </span><span class="kw">call</span>(<span class="st">&quot;list&quot;</span>, exps.sub)
     <span class="kw">structure</span>(x, <span class="dt">.GRP=</span><span class="kw">dot_list</span>(exps.sub, <span class="st">&quot;G&quot;</span>))
 } }
-<span class="co"># -- Filtering -----------------------------------------------------------------</span>
+## - Filtering -----------------------------------------------------------------
 
 filter_r &lt;-<span class="st"> </span>function(x, subset) {
   sub.exp &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
@@ -314,7 +316,7 @@ filter_r &lt;-<span class="st"> </span>function(x, subset) {
     } else x
   )
 }
-<span class="co"># -- Pipe ----------------------------------------------------------------------</span>
+## - Pipe ----------------------------------------------------------------------
 
 <span class="st">`</span><span class="dt">%$%</span><span class="st">`</span> &lt;-<span class="st"> </span>function(x, y) {
   x.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(x), <span class="kw">parent.frame</span>())
@@ -322,7 +324,7 @@ filter_r &lt;-<span class="st"> </span>function(x, subset) {
   y.list &lt;-<span class="st"> </span>if(!<span class="kw">is.call</span>(y.sub)) <span class="kw">list</span>(y.sub) else <span class="kw">as.list</span>(y.sub)
   <span class="kw">eval</span>(<span class="kw">sub_dat</span>(y.sub, x), <span class="kw">parent.frame</span>())
 }
-<span class="co"># -- Helper Funs ---------------------------------------------------------------</span>
+## - Helper Funs ---------------------------------------------------------------
 
 <span class="co"># Takes result of `substitute(list(...))` and returns a list of quoted language</span>
 <span class="co"># object with nice names.</span>
