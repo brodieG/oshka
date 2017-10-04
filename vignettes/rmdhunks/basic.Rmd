@@ -14,12 +14,12 @@ subset(iris, Sepal.Width > 4.1)
 A limitation of NSE is that it is difficult to use programmatically:
 
 ```{r}
-my.exp.a <- quote(Sepal.Width > 4.1)
-subset(iris, my.exp.a)
+exp.a <- quote(Sepal.Width > 4.1)
+subset(iris, exp.a)
 ```
 
-`expand` facilitates programmable NSE, as with this simplified version of
-`subset`:
+`matrioshka::expand` facilitates programmable NSE, as with this simplified
+version of `subset`:
 
 ```{r}
 subset2 <- function(x, subset) {
@@ -27,17 +27,17 @@ subset2 <- function(x, subset) {
   sub.val <- eval(sub.exp, x, parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
-subset2(iris, my.exp.a)
+subset2(iris, exp.a)
 ```
 
 `expand` is recursive:
 
 ```{r rec_ex_1}
-my.exp.b <- quote(Species == 'virginica')
-my.exp.c <- quote(Sepal.Width > 3.6)
-my.exp.d <- quote(my.exp.b & my.exp.c)
+exp.b <- quote(Species == 'virginica')
+exp.c <- quote(Sepal.Width > 3.6)
+exp.d <- quote(exp.b & exp.c)
 
-subset2(iris, my.exp.d)
+subset2(iris, exp.d)
 ```
 
 We abide by R semantics so that programmable NSE functions are almost

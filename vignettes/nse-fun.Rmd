@@ -1,5 +1,5 @@
 ---
-title: "NSE Functions with `recsub`"
+title: "NSE Functions with `matrioshka`"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
@@ -7,21 +7,21 @@ output:
         css: styles.css
 
 vignette: >
-  %\VignetteIndexEntry{NSE Functions with Recsub}
+  %\VignetteIndexEntry{NSE Functions with matrioshka}
   %\VignetteEngine{knitr::rmarkdown}
   %\usepackage[utf8]{inputenc}
 ---
 
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(recsub)
+library(matrioshka)
 knitr::read_chunk('../tests/helper/ersatz.R')
 ```
 
 ## Overview
 
 We will implement simplified versions of `dplyr` and `data.table` to illustrate
-how to write programmable NSE functions with `recsub`.  The implementations are
+how to write programmable NSE functions with `matrioshka`.  The implementations are
 intentionally limited in functionality, robustness, and speed for the sake of
 simplicity.
 
@@ -54,7 +54,7 @@ CO2 %$%
 
 ### Implementation
 
-Most of the implementation is not directly related to `recsub` NSE, but we will
+Most of the implementation is not directly related to `matrioshka` NSE, but we will
 go over `summarize_r` to highlight how those parts integrate with the rest.
 `summarize_r` is just a forwarding function:
 
@@ -68,17 +68,17 @@ there is no guarantee we would find it on the search path starting from the
 parent frame.  In this case it happens to be available, but it would not be if
 these functions were in a package.
 
-We present `recsub` in full for reference, but feel free to skip as we highlight
-the interesting bits next:
+We present `summarize_r_l` in full for reference, but feel free to skip as we
+highlight the interesting bits next:
 
 ```{r eval=FALSE}
 <<summarize_r_l>>
 ```
 
-The only `recsub` specific line is the second one:
+The only `matrioshka` specific line is the second one:
 
 ```{r eval=FALSE}
-  exps.sub <- recsub(substitute(els), x, frm)
+  exps.sub <- expand(substitute(els), x, frm)
 ```
 
 `els` is the language captured and forwarded by `summarize_r`.  We run `recub`
@@ -99,7 +99,7 @@ data into groups:
     dat.split <- split(x, splits, drop=TRUE)
 ```
 
-Finally we can evaluate our `recsub`ed expressions within each of the groups:
+Finally we can evaluate our `expand`ed expressions within each of the groups:
 
 ```{r eval=FALSE}
     # aggregate
@@ -130,7 +130,7 @@ CO2 %$%
   summarize_r(round(s.exp))
 ```
 
-Because `%$%` uses `recsub` too you can even do the following:
+Because `%$%` uses `expand` you can even do the following:
 
 ```{r}
 f.exp.b <- quote(filter_r(grepl("[12]", Plant) & conc > 500))

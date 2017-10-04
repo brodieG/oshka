@@ -87,8 +87,11 @@ Because `matrioshka` does not capture environments, we must resort to the
 `eval`/`bquote` pattern:
 
 ```{r eval=FALSE}
-recub_virginica <- function(subset) {
+matrioshka_virginica <- function(subset) {
   subset <- bquote(Species == 'virginica' & .(substitute(subset)))
   eval(bquote(.(subset2)(iris, .(subset))), parent.frame())
 }
 ```
+
+`matrioshka` minimizes the complexity in what we see as the most common use
+case, and sticks to R semantics for the more complicated ones.
