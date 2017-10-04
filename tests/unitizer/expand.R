@@ -61,3 +61,18 @@ unitizer_sect("function", {
   })
   expand(quote(x(z)))
 })
+unitizer_sect("expressions", {
+  exp.a <- quote(1 + 1)
+  exp.b <- quote(2 + 2)
+
+  expand(expression(exp.a, exp.b))
+  expand(quote(expression(exp.a, exp.b)))
+
+  my_fun <- function(...) NULL
+  expression <- quote(my_fun)
+
+  expand(expression(exp.b, exp.a))
+  expand(quote(expression(exp.b, exp.a)))
+
+  expression <- base::expression  # can't `rm`
+})
