@@ -45,3 +45,19 @@ unitizer_sect("catch inf rec", {
 
   recsub(quote(c2), l2)
 })
+unitizer_sect("function", {
+  fun <- function(x) NULL
+  x <- quote(fun)
+  z <- quote(b3 + c3)
+  local({
+    x <- "hello"
+    z <- quote(a3 + b3)
+    recsub(quote(x(z)))
+  })
+  local({
+    x <- quote(fun23adsf)
+    z <- quote(a3 + b3)
+    recsub(quote(x(z)))
+  })
+  recsub(quote(x(z)))
+})
