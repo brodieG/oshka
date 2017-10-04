@@ -1,5 +1,5 @@
 ---
-title: "Programmable Non-Standard Evaluation"
+title: "matrioshka - Programmable NSE"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
@@ -14,7 +14,7 @@ vignette: >
 
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(recsub)
+library(matrioshka)
 ```
 
 ```{r child='./rmdhunks/basic.Rmd'}
@@ -51,7 +51,7 @@ sapply(sys.calls(), head, 1)  # sys.calls is similarly affected
 
 ## Versus `rlang`
 
-`recsub` is simple in design and purpose.  It exports a single function that
+`matrioshka` is simple in design and purpose.  It exports a single function that
 substitutes expressions into other expressions.  It hews closely to R semantics.
 `rlang` is more ambitious and more complex as a result.  To use it you must
 learn new concepts and semantics.
@@ -67,7 +67,7 @@ rlang.d <- quo(!!rlang.b & !!rlang.c)
 dplyr::filter(iris, !!rlang.d)
 ```
 
-As shown earlier, the `recsub` version is more straightforward as it uses the
+As shown earlier, the `expand` version is more straightforward as it uses the
 standard `quote` function and does not require unquoting:
 
 ```{r rec_ex_1, eval=FALSE}
@@ -83,7 +83,7 @@ rlang_virginica <- function(subset) {
 }
 ```
 
-Because `recsub` does not capture environments, we must resort to the
+Because `matrioshka` does not capture environments, we must resort to the
 `eval`/`bquote` pattern:
 
 ```{r eval=FALSE}
