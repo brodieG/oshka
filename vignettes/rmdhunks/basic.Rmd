@@ -1,4 +1,4 @@
-## Programmable NSE
+## Programmable Non-Standard Evaluation
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
@@ -18,19 +18,19 @@ my.exp.a <- quote(Sepal.Width > 4.1)
 subset(iris, my.exp.a)
 ```
 
-`recsub` facilitates programmable NSE, as with this simplified version of
+`expand` facilitates programmable NSE, as with this simplified version of
 `subset`:
 
 ```{r}
 subset2 <- function(x, subset) {
-  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.exp <- expand(substitute(subset), x, parent.frame())
   sub.val <- eval(sub.exp, x, parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
 subset2(iris, my.exp.a)
 ```
 
-`recsub` is recursive:
+`expand` is recursive:
 
 ```{r rec_ex_1}
 my.exp.b <- quote(Species == 'virginica')
