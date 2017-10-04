@@ -95,3 +95,11 @@ matrioshka_virginica <- function(subset) {
 
 `matrioshka` minimizes the complexity in what we see as the most common use
 case, and sticks to R semantics for the more complicated ones.
+
+For additional discussion on `rlang` see the following presentations:
+
+* [Tidyeval useR2017 Presentation][1]
+* [Tidy Evaluation (Hygienic fexprs)][2]
+
+[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
+[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf

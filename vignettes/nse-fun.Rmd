@@ -62,7 +62,7 @@ go over `summarize_r` to highlight how those parts integrate with the rest.
 <<summarize_r>>
 ```
 
-We use the `eval`/`bquote` pattern to forward `NSE` arguments.  We
+We use the `eval`/`bquote` pattern to [forward `NSE` arguments][1].  We
 retrieve `summarize_r_l` from the current function frame with `.()`, because
 there is no guarantee we would find it on the search path starting from the
 parent frame.  In this case it happens to be available, but it would not be if
@@ -216,9 +216,10 @@ local({
 Ersatz `dplyr` implementation:
 
 ```{r eval=FALSE}
-## - Summarize ----------------------------------------------------------------- 
+## - Summarize -----------------------------------------------------------------
 
 <<summarize_r>>
 <<summarize_r_l>>
 <<fo_dplyr_extra>>
 ```
+[1]: ./Introduction.html#forwarding-nse-arguments-to-nse-functions
