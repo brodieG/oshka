@@ -50,7 +50,7 @@ symbol searches in R where a symbol pointing to a non-function object will
 not mask a symbol pointing to a function object when it is used as the name
 of the function in a call.
 
-See examples and \code{browseVignettes('matrioshka')} for more details.
+See examples and \code{browseVignettes('oshka')} for more details.
 }
 \examples{
 xzw <- uvt <- NULL  # make sure not lang objects
