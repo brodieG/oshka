@@ -2,7 +2,8 @@
 
 Non-Standard Evaluation (NSE hereafter) occurs when R expressions are
 captured and evaluated in a manner different than if they had been executed
-without intervention.  `subset` is a canonical example:
+without intervention.  `subset` is a canonical example, which we use here with
+the built-in `iris` data set:
 
 ```{r}
 subset(iris, Sepal.Width > 4.1)

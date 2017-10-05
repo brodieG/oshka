@@ -46,7 +46,7 @@ summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
 Our functions mimic the corresponding `dplyr` ones:
 
 ```{r}
-CO2 %$%
+CO2 %$%                              # built-in dataset
   filter_r(grepl("[12]", Plant)) %$%
   group_r(Type, Treatment) %$%
   summarize_r(mean(conc), mean(uptake))
@@ -81,7 +81,7 @@ The only `matrioshka` specific line is the second one:
   exps.sub <- expand(substitute(els), x, frm)
 ```
 
-`els` is the language captured and forwarded by `summarize_r`.  We run `recub`
+`els` is the language captured and forwarded by `summarize_r`.  We run `expand`
 on that language with our data `x` as the environment and the parent frame as
 the enclosure.  We then compute the groups:
 
@@ -118,7 +118,7 @@ You can see the rest of the implementation in the [appendix](#appendix).
 
 ### Examples
 
-That single `rescub` line enables a programmable NSE:
+That single `expand` line enables a programmable NSE:
 
 ```{r}
 f.exp <- quote(grepl("[12]", Plant))
