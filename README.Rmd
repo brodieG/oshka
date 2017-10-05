@@ -7,40 +7,38 @@ knitr::opts_chunk$set(
   fig.path = "README-",
   error = TRUE
 )
-library(recsub)
+library(oshka)
 ```
 
-# recsub - Programmable Non-Standard Evaluation
+# oshka - Simple Programmable NSE
 
-[![](https://travis-ci.org/brodieG/recsub.svg?branch=master)](https://travis-ci.org/brodieG/recsub)
-[![](https://codecov.io/github/brodieG/recsub/coverage.svg?branch=master)](https://codecov.io/github/brodieG/recsub?branch=master)
-[![](http://www.r-pkg.org/badges/version/recsub)](https://cran.r-project.org/package=recsub)
+[![](https://travis-ci.org/brodieG/oshka.svg?branch=master)](https://travis-ci.org/brodieG/oshka)
+[![](https://codecov.io/github/brodieG/oshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/oshka?branch=master)
+[![](http://www.r-pkg.org/badges/version/oshka)](https://cran.r-project.org/package=oshka)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
 ```{r child='vignettes/rmdhunks/basic.Rmd'}
 ```
 
-## Additional Documentation
+## Documentation
 
 * [Intro
-  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/introduction.html)
-  for a more in depth introduction to `recsub`, including a brief comparison to
+  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/oshka/blob/master/inst/doc/introduction.html)
+  for a more in depth introduction to `oshka`, including a brief comparison to
   `rlang`.
 * [NSE Functions with
-  `recsub`](http://htmlpreview.github.io/?https://github.com/brodieG/recsub/blob/master/inst/doc/nse-fun.html)
+  `oshka`](http://htmlpreview.github.io/?https://github.com/brodieG/oshka/blob/master/inst/doc/nse-fun.html)
   in which we recreate simplified versions of `dplyr` and `data.table` that
-  implement programmable NSE with `recsub`.
+  implement programmable NSE with `oshka::expand`.
 
-## Development Status
+## Installation
+
+```{r eval=FALSE}
+install.packages('oshka')
+```
 
 This package is proof-of-concept.  Feedback is welcome, particularly if you are
 aware of some NSE pitfalls we may be ignoring.
-
-Currently this package is only available on github:
-
-```{r eval=FALSE}
-devtools::install_github('brodieg/recsub')
-```
 
 ## Acknowledgements
 
@@ -64,4 +62,11 @@ devtools::install_github('brodieg/recsub')
   Allaire](https://github.com/jjallaire) etal for
   [rmarkdown](https://cran.r-project.org/package=rmarkdown), and by extension
   John MacFarlane for [pandoc](http://pandoc.org/).
+
+## About
+
+Brodie Gaslam is a hobbyist programmer based on the US East Coast.
+
+The name of this package is derived from "matryoshka", the Russian nesting
+dolls.
 

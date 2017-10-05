@@ -13,7 +13,7 @@
 <meta name="author" content="Brodie Gaslam" />
 
 
-<title>NSE Functions with recsub</title>
+<title>NSE Functions with oshka</title>
 
 
 
@@ -67,7 +67,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 
 
-<h1 class="title toc-ignore">NSE Functions with <code>recsub</code></h1>
+<h1 class="title toc-ignore">NSE Functions with <code>oshka</code></h1>
 <h4 class="author"><em>Brodie Gaslam</em></h4>
 
 
@@ -89,7 +89,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <div id="overview" class="section level2">
 <h2>Overview</h2>
-<p>We will implement simplified versions of <code>dplyr</code> and <code>data.table</code> to illustrate how to write programmable NSE functions with <code>recsub</code>. The implementations are intentionally limited in functionality, robustness, and speed for the sake of simplicity.</p>
+<p>We will implement simplified versions of <code>dplyr</code> and <code>data.table</code> to illustrate how to write programmable NSE functions with <code>oshka</code>. The implementations are intentionally limited in functionality, robustness, and speed for the sake of simplicity.</p>
 </div>
 <div id="an-ersatz-dplyr" class="section level2">
 <h2>An Ersatz <code>dplyr</code></h2>
@@ -101,7 +101,7 @@ filter_r &lt;-<span class="st"> </span>function(x, subset) {...} <span class="co
 summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co"># similar to dplyr::summarise</span>
 <span class="st">`</span><span class="dt">%$%</span><span class="st">`</span> &lt;-<span class="st"> </span>function(x, y) {...}         <span class="co"># similar to the magrittr pipe</span></code></pre></div>
 <p>Our functions mimic the corresponding <code>dplyr</code> ones:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">CO2 %$%
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">CO2 %$%<span class="st">                              </span><span class="co"># built-in dataset</span>
 <span class="st">  </span><span class="kw">filter_r</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant)) %$%
 <span class="st">  </span><span class="kw">group_r</span>(Type, Treatment) %$%
 <span class="st">  </span><span class="kw">summarize_r</span>(<span class="kw">mean</span>(conc), <span class="kw">mean</span>(uptake))</code></pre></div>
@@ -113,14 +113,14 @@ summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co
 </div>
 <div id="implementation" class="section level3">
 <h3>Implementation</h3>
-<p>Most of the implementation is not directly related to <code>recsub</code> NSE, but we will go over <code>summarize_r</code> to highlight how those parts integrate with the rest. <code>summarize_r</code> is just a forwarding function:</p>
+<p>Most of the implementation is not directly related to <code>oshka</code> NSE, but we will go over <code>summarize_r</code> to highlight how those parts integrate with the rest. <code>summarize_r</code> is just a forwarding function:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">summarize_r &lt;-<span class="st"> </span>function(x, ...)
   <span class="kw">eval</span>(<span class="kw">bquote</span>(.(summarize_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())</code></pre></div>
-<p>We use the <code>eval</code>/<code>bquote</code> pattern to forward <code>NSE</code> arguments. We retrieve <code>summarize_r_l</code> from the current function frame with <code>.()</code>, because there is no guarantee we would find it on the search path starting from the parent frame. In this case it happens to be available, but it would not be if these functions were in a package.</p>
-<p>We present <code>recsub</code> in full for reference, but feel free to skip as we highlight the interesting bits next:</p>
+<p>We use the <code>eval</code>/<code>bquote</code> pattern to <a href="./Introduction.html#forwarding-nse-arguments-to-nse-functions">forward <code>NSE</code> arguments</a>. We retrieve <code>summarize_r_l</code> from the current function frame with <code>.()</code>, because there is no guarantee we would find it on the search path starting from the parent frame. In this case it happens to be available, but it would not be if these functions were in a package.</p>
+<p>We present <code>summarize_r_l</code> in full for reference, but feel free to skip as we highlight the interesting bits next:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">summarize_r_l &lt;-<span class="st"> </span>function(x, els) {
   frm &lt;-<span class="st"> </span><span class="kw">parent.frame</span>()
-  exps.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(els), x, frm)
+  exps.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(els), x, frm)
   if(<span class="kw">is.null</span>(exps.sub)) x else {
     <span class="co"># compute groups and splits</span>
     grps &lt;-<span class="st"> </span><span class="kw">make_grps</span>(x)        <span class="co"># see appendix</span>
@@ -136,14 +136,14 @@ summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co
     <span class="kw">list_to_df</span>(res.list, grp.split, splits)   <span class="co"># see appendix</span>
   }
 }</code></pre></div>
-<p>The only <code>recsub</code> specific line is the second one:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">  exps.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(els), x, frm)</code></pre></div>
-<p><code>els</code> is the language captured and forwarded by <code>summarize_r</code>. We run <code>recub</code> on that language with our data <code>x</code> as the environment and the parent frame as the enclosure. We then compute the groups:</p>
+<p>The only <code>oshka</code> specific line is the second one:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">  exps.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(els), x, frm)</code></pre></div>
+<p><code>els</code> is the language captured and forwarded by <code>summarize_r</code>. We run <code>expand</code> on that language with our data <code>x</code> as the environment and the parent frame as the enclosure. We then compute the groups:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">    grps &lt;-<span class="st"> </span><span class="kw">make_grps</span>(x)        <span class="co"># see appendix</span>
     splits &lt;-<span class="st"> </span><span class="kw">lapply</span>(grps, eval, x, frm)</code></pre></div>
 <p><code>make_grps</code> extracts the grouping expressions generating by <code>group_r</code>. These have already been substituted so we evaluate each one with <code>x</code> as the environment and the parent frame as the enclosure. We use this to split our data into groups:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">    dat.split &lt;-<span class="st"> </span><span class="kw">split</span>(x, splits, <span class="dt">drop=</span><span class="ot">TRUE</span>)</code></pre></div>
-<p>Finally we can evaluate our <code>recsub</code>ed expressions within each of the groups:</p>
+<p>Finally we can evaluate our <code>expand</code>ed expressions within each of the groups:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">    <span class="co"># aggregate</span>
     res.list &lt;-<span class="st"> </span><span class="kw">lapply</span>(
       <span class="kw">dot_list</span>(exps.sub),       <span class="co"># see appendix</span>
@@ -155,7 +155,7 @@ summarize_r &lt;-<span class="st"> </span>function(x, ...) {...} <span class="co
 </div>
 <div id="examples" class="section level3">
 <h3>Examples</h3>
-<p>That single <code>rescub</code> line enables a programmable NSE:</p>
+<p>That single <code>expand</code> line enables a programmable NSE:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant))
 s.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">mean</span>(uptake))
 
@@ -168,7 +168,7 @@ CO2 %$%
 2 Mississippi nonchilled                  33
 3      Quebec    chilled                  38
 4 Mississippi    chilled                  18</code></pre>
-<p>Because <code>%$%</code> uses <code>recsub</code> too you can even do the following:</p>
+<p>Because <code>%$%</code> uses <code>expand</code> you can even do the following:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">filter_r</span>(<span class="kw">grepl</span>(<span class="st">&quot;[12]&quot;</span>, Plant) &amp;<span class="st"> </span>conc &gt;<span class="st"> </span><span class="dv">500</span>))
 g.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">group_r</span>(Type, Treatment))
 s.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">summarize_r</span>(<span class="kw">mean</span>(conc), <span class="kw">mean</span>(uptake)))
@@ -270,13 +270,13 @@ g.exp &lt;-<span class="st"> </span><span class="kw">quote</span>(Whatever)     
 <div id="appendix" class="section level2">
 <h2>Appendix</h2>
 <p>Ersatz <code>dplyr</code> implementation:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## - Summarize ----------------------------------------------------------------- 
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## - Summarize -----------------------------------------------------------------
 
 summarize_r &lt;-<span class="st"> </span>function(x, ...)
   <span class="kw">eval</span>(<span class="kw">bquote</span>(.(summarize_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())
 summarize_r_l &lt;-<span class="st"> </span>function(x, els) {
   frm &lt;-<span class="st"> </span><span class="kw">parent.frame</span>()
-  exps.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(els), x, frm)
+  exps.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(els), x, frm)
   if(<span class="kw">is.null</span>(exps.sub)) x else {
     <span class="co"># compute groups and splits</span>
     grps &lt;-<span class="st"> </span><span class="kw">make_grps</span>(x)        <span class="co"># see appendix</span>
@@ -297,7 +297,7 @@ summarize_r_l &lt;-<span class="st"> </span>function(x, els) {
 group_r &lt;-<span class="st"> </span>function(x, ...)
   <span class="kw">eval</span>(<span class="kw">bquote</span>(.(group_r_l)(.(x), .(<span class="kw">substitute</span>(<span class="kw">list</span>(...))))), <span class="kw">parent.frame</span>())
 group_r_l &lt;-<span class="st"> </span>function(x, els) {
-  exps.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(els), x, <span class="kw">parent.frame</span>())
+  exps.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(els), x, <span class="kw">parent.frame</span>())
   if(<span class="kw">is.null</span>(exps.sub)) x else {
     if(!<span class="kw">is.call</span>(exps.sub) ||<span class="st"> </span>exps.sub[[1L]] !=<span class="st"> </span><span class="kw">quote</span>(list))
       exps.sub &lt;-<span class="st"> </span><span class="kw">call</span>(<span class="st">&quot;list&quot;</span>, exps.sub)
@@ -306,7 +306,7 @@ group_r_l &lt;-<span class="st"> </span>function(x, els) {
 ## - Filtering -----------------------------------------------------------------
 
 filter_r &lt;-<span class="st"> </span>function(x, subset) {
-  sub.exp &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
+  sub.exp &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
   sub.val &lt;-<span class="st"> </span><span class="kw">eval</span>(sub.exp, x, <span class="kw">parent.frame</span>())
   <span class="kw">as.data.frame</span>(
     if(!<span class="kw">is.null</span>(sub.val)) {
@@ -319,8 +319,8 @@ filter_r &lt;-<span class="st"> </span>function(x, subset) {
 ## - Pipe ----------------------------------------------------------------------
 
 <span class="st">`</span><span class="dt">%$%</span><span class="st">`</span> &lt;-<span class="st"> </span>function(x, y) {
-  x.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(x), <span class="kw">parent.frame</span>())
-  y.sub &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(y), <span class="kw">parent.frame</span>())
+  x.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(x), <span class="kw">parent.frame</span>())
+  y.sub &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(y), <span class="kw">parent.frame</span>())
   y.list &lt;-<span class="st"> </span>if(!<span class="kw">is.call</span>(y.sub)) <span class="kw">list</span>(y.sub) else <span class="kw">as.list</span>(y.sub)
   <span class="kw">eval</span>(<span class="kw">sub_dat</span>(y.sub, x), <span class="kw">parent.frame</span>())
 }
