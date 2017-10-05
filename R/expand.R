@@ -4,37 +4,41 @@
 
 #' @importFrom utils tail
 
-expand_int <- function(lang, envir, symbols=NULL, mode) {
-  if(is.symbol(lang)) {
-    symb.as.chr <- as.character(lang)
-    if(symb.as.chr %in% symbols)
-      stop(
-        "Potential infinite recursion detected substituting symbol `",
-        symb.as.chr, "`"
-      )
+expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
+  if(
+    (length(shield) && !any(class(lang) %in% shield)) ||
+    !is.object(lang)
+  ) {
+    if(is.symbol(lang)) {
+      symb.as.chr <- as.character(lang)
+      if(symb.as.chr %in% symbols)
+        stop(
+          "Potential infinite recursion detected substituting symbol `",
+          symb.as.chr, "`"
+        )
 
-    lang.sub <- get_with_env(symb.as.chr, envir=envir, mode=mode)
+      lang.sub <- get_with_env(symb.as.chr, envir=envir, mode=mode)
 
-    if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
-      # track all symbols detected at this env level so we can detect an
-      # infinite recursion
-      symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
-      expand_int(
-        lang.sub$obj, envir=lang.sub$envir, symbols=symbols, mode="any"
-      )
-    }
-    else lang
-  } else if (is.language(lang)) {
-    lang.el.seq <- seq_along(lang)
-    # special function symbol if in call
-    loop.over <- if(is.expression(lang)) lang.el.seq else tail(lang.el.seq, -1L)
-    for(i in seq_along(lang)) {
-      mode <- if(i == 1L && !is.expression(lang)) "function" else "any"
-      lang[[i]] <-
-        expand_int(lang[[i]], envir=envir, symbols=symbols, mode=mode)
-    }
-    lang
-  } else lang
+      if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
+        # track all symbols detected at this env level so we can detect an
+        # infinite recursion
+        symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
+        lang <- expand_int(
+          lang.sub$obj, envir=lang.sub$envir, symbols=symbols, mode="any",
+          shield=shield
+        )
+      }
+    } else if (is.language(lang)) {
+      lang.el.seq <- seq_along(lang)
+      # special function symbol if in call
+      loop.over <- if(is.expression(lang)) lang.el.seq else tail(lang.el.seq, -1L)
+      for(i in seq_along(lang)) {
+        mode <- if(i == 1L && !is.expression(lang)) "function" else "any"
+        lang[[i]] <- expand_int(
+          lang[[i]], envir=envir, symbols=symbols, mode=mode, shield=shield
+        )
+  } } }
+  lang
 }
 #' Recursively Expand Symbols in Quoted Language
 #'
@@ -67,6 +71,9 @@ expand_int <- function(lang, envir, symbols=NULL, mode) {
 #'
 #' @export
 #' @inheritParams base::eval
+#' @param shield character language objects that inherit from any classes
+#'   defined in this parameter will not be expanded.  An empty vector (default)
+#'   means no classed language (e.g. formulas) will be expanded.
 #' @return If the input is a language object, that object with all symbols
 #'   recursively substituted, otherwise the input unchanged.
 #' @examples
@@ -101,12 +108,16 @@ expand_int <- function(lang, envir, symbols=NULL, mode) {
 expand <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv(),
-  what="all"
+  shield=character()
 ) {
+  if(!is.character(shield) || anyNA(shield))
+    stop("Argument `shield` must be character with no NAs")
   if(!is.language(expr)) {
     expr
   } else {
     envir.proc <- env_resolve(envir, enclos, internal=TRUE)
-    expand_int(expr, envir=envir.proc, symbols=character(), mode="any")
+    expand_int(
+      expr, envir=envir.proc, symbols=character(), mode="any", shield=shield
+    )
   }
 }

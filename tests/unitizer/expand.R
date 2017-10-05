@@ -61,6 +61,23 @@ unitizer_sect("function", {
   })
   expand(quote(x(z)))
 })
+unitizer_sect("shield", {
+  a4 <- quote(1 + 1)
+  b4 <- quote(2 + 1)
+
+  expand(a4 ~ b4)
+  expand(a4 ~ b4, shield="AsIs")     # formulas not shielded
+  expand(a4 ~ b4, shield="formula")
+  expand(I(a4 ~ b4), shield="AsIs")
+  expand(I(a4 ~ b4), shield=c("hello", "AsIs"))
+  expand(I(a4 ~ b4), shield=c("hello", NA_character_))
+
+  expand(bquote(a4 & .(I(quote((b4))))))
+  expand(bquote(a4 & .(I(quote(a4 & b4)))))
+})
+
+# this next block should probably be last given we can't really `rm`
+
 unitizer_sect("expressions", {
   exp.a <- quote(1 + 1)
   exp.b <- quote(2 + 2)
@@ -76,3 +93,4 @@ unitizer_sect("expressions", {
 
   expression <- base::expression  # can't `rm`
 })
+
