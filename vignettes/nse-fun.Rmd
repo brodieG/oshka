@@ -1,5 +1,5 @@
 ---
-title: "NSE Functions with `matrioshka`"
+title: "NSE Functions with `oshka`"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
@@ -7,21 +7,21 @@ output:
         css: styles.css
 
 vignette: >
-  %\VignetteIndexEntry{NSE Functions with matrioshka}
+  %\VignetteIndexEntry{NSE Functions with oshka}
   %\VignetteEngine{knitr::rmarkdown}
   %\usepackage[utf8]{inputenc}
 ---
 
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(matrioshka)
+library(oshka)
 knitr::read_chunk('../tests/helper/ersatz.R')
 ```
 
 ## Overview
 
 We will implement simplified versions of `dplyr` and `data.table` to illustrate
-how to write programmable NSE functions with `matrioshka`.  The implementations are
+how to write programmable NSE functions with `oshka`.  The implementations are
 intentionally limited in functionality, robustness, and speed for the sake of
 simplicity.
 
@@ -54,7 +54,7 @@ CO2 %$%                              # built-in dataset
 
 ### Implementation
 
-Most of the implementation is not directly related to `matrioshka` NSE, but we will
+Most of the implementation is not directly related to `oshka` NSE, but we will
 go over `summarize_r` to highlight how those parts integrate with the rest.
 `summarize_r` is just a forwarding function:
 
@@ -75,7 +75,7 @@ highlight the interesting bits next:
 <<summarize_r_l>>
 ```
 
-The only `matrioshka` specific line is the second one:
+The only `oshka` specific line is the second one:
 
 ```{r eval=FALSE}
   exps.sub <- expand(substitute(els), x, frm)

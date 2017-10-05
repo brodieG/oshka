@@ -1,4 +1,4 @@
-library(matrioshka)
+library(oshka)
 
 unitizer_sect("simple tests", {
   a <- quote(x > 3)

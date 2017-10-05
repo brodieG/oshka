@@ -19,7 +19,7 @@ exp.a <- quote(Sepal.Width > 4.1)
 subset(iris, exp.a)
 ```
 
-`matrioshka::expand` facilitates programmable NSE, as with this simplified
+`oshka::expand` facilitates programmable NSE, as with this simplified
 version of `subset`:
 
 ```{r}

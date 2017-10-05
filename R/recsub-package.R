@@ -5,7 +5,7 @@
 #' objects from simple ones, which they can then expand and evaluate.
 #'
 #' @docType package
-#' @name matrioshka-package
+#' @name oshka-package
 
 NULL
 

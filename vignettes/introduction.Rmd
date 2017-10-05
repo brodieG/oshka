@@ -1,5 +1,5 @@
 ---
-title: "matrioshka - Programmable NSE"
+title: "oshka - Programmable NSE"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:
@@ -14,7 +14,7 @@ vignette: >
 
 ```{r global_options, echo=FALSE}
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(matrioshka)
+library(oshka)
 ```
 
 ```{r child='./rmdhunks/basic.Rmd'}
@@ -51,7 +51,7 @@ sapply(sys.calls(), head, 1)  # sys.calls is similarly affected
 
 ## Versus `rlang`
 
-`matrioshka` is simple in design and purpose.  It exports a single function that
+`oshka` is simple in design and purpose.  It exports a single function that
 substitutes expressions into other expressions.  It hews closely to R semantics.
 `rlang` is more ambitious and more complex as a result.  To use it you must
 learn new concepts and semantics.
@@ -83,22 +83,22 @@ rlang_virginica <- function(subset) {
 }
 ```
 
-Because `matrioshka` does not capture environments, we must resort to the
+Because `oshka` does not capture environments, we must resort to the
 `eval`/`bquote` pattern:
 
 ```{r eval=FALSE}
-matrioshka_virginica <- function(subset) {
+oshka_virginica <- function(subset) {
   subset <- bquote(Species == 'virginica' & .(substitute(subset)))
   eval(bquote(.(subset2)(iris, .(subset))), parent.frame())
 }
 ```
 
-`matrioshka` minimizes the complexity in what we see as the most common use
+`oshka` minimizes the complexity in what we see as the most common use
 case, and sticks to R semantics for the more complicated ones.
 
 For additional discussion on `rlang` see the following presentations:
 
-* [Tidyeval useR2017 Presentation][1]
+* [Tidyeval useR 2017 Presentation][1]
 * [Tidy Evaluation (Hygienic fexprs)][2]
 
 [1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf

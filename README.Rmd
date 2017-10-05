@@ -7,14 +7,14 @@ knitr::opts_chunk$set(
   fig.path = "README-",
   error = TRUE
 )
-library(matrioshka)
+library(oshka)
 ```
 
-# matrioshka - Simple Programmable NSE
+# oshka - Simple Programmable NSE
 
-[![](https://travis-ci.org/brodieG/matrioshka.svg?branch=master)](https://travis-ci.org/brodieG/matrioshka)
-[![](https://codecov.io/github/brodieG/matrioshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/matrioshka?branch=master)
-[![](http://www.r-pkg.org/badges/version/matrioshka)](https://cran.r-project.org/package=matrioshka)
+[![](https://travis-ci.org/brodieG/oshka.svg?branch=master)](https://travis-ci.org/brodieG/oshka)
+[![](https://codecov.io/github/brodieG/oshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/oshka?branch=master)
+[![](http://www.r-pkg.org/badges/version/oshka)](https://cran.r-project.org/package=oshka)
 [![Project Status: WIP - Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
 ```{r child='vignettes/rmdhunks/basic.Rmd'}
@@ -23,18 +23,18 @@ library(matrioshka)
 ## Documentation
 
 * [Intro
-  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/matrioshka/blob/master/inst/doc/introduction.html)
-  for a more in depth introduction to `matrioshka`, including a brief comparison to
+  vignette](http://htmlpreview.github.io/?https://github.com/brodieG/oshka/blob/master/inst/doc/introduction.html)
+  for a more in depth introduction to `oshka`, including a brief comparison to
   `rlang`.
 * [NSE Functions with
-  `matrioshka`](http://htmlpreview.github.io/?https://github.com/brodieG/matrioshka/blob/master/inst/doc/nse-fun.html)
+  `oshka`](http://htmlpreview.github.io/?https://github.com/brodieG/oshka/blob/master/inst/doc/nse-fun.html)
   in which we recreate simplified versions of `dplyr` and `data.table` that
-  implement programmable NSE with `matrioshka::expand`.
+  implement programmable NSE with `oshka::expand`.
 
 ## Installation
 
 ```{r eval=FALSE}
-install.packages('matrioshka')
+install.packages('oshka')
 ```
 
 This package is proof-of-concept.  Feedback is welcome, particularly if you are
@@ -67,7 +67,6 @@ aware of some NSE pitfalls we may be ignoring.
 
 Brodie Gaslam is a hobbyist programmer based on the US East Coast.
 
-The recursive substitution of symbols evokes Russian nesting dolls, hence
-the name of the package.  We would have preferred to name the `expand` function
-`unnest`, but the symbol is already in use in the popular `tidyr` package.
+The name of this package is derived from "matryoshka", the Russian nesting
+dolls.
 

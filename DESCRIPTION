@@ -1,4 +1,4 @@
-Package: matrioshka
+Package: oshka
 Title: Programmable Non-Standard Evaluation
 Description: Expands quoted language by recursively replacing any symbols that
     point to language objects with that language.  Users can construct complex
@@ -12,8 +12,8 @@ Depends:
     R (>= 3.3.2)
 License: GPL (>=2)
 LazyData: true
-URL: https://github.com/brodieG/matrioshka
-BugReports: https://github.com/brodieG/matrioshka/issues
+URL: https://github.com/brodieG/oshka
+BugReports: https://github.com/brodieG/oshka/issues
 VignetteBuilder: knitr
 Imports:
     utils,

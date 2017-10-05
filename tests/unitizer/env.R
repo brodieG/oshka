@@ -1,4 +1,4 @@
-library(matrioshka)
+library(oshka)
 
 unitizer_sect("Env levels", {
   ## Key thing here is that we get the same answer from eval and evalr, we use
@@ -29,17 +29,17 @@ unitizer_sect("Functions", {
   imafun <- imafun2 <- function() NULL
   local({
     imafun <- TRUE
-    matrioshka:::get_with_env("imafun", envir=environment())
+    oshka:::get_with_env("imafun", envir=environment())
   })
   local({
     imafun <- TRUE
-    matrioshka:::get_with_env("imafun", envir=environment(), mode="function")
+    oshka:::get_with_env("imafun", envir=environment(), mode="function")
   })
   local({
     imafun2 <- quote(a + b)
-    matrioshka:::get_with_env("imafun2", envir=environment(), mode="function")
+    oshka:::get_with_env("imafun2", envir=environment(), mode="function")
   })
 })
 unitizer_sect("Errors", {
-  matrioshka:::env_resolve(letters, new.env())
+  oshka:::env_resolve(letters, new.env())
 })

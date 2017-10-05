@@ -63,7 +63,7 @@ expand_int <- function(lang, envir, symbols=NULL, mode) {
 #' not mask a symbol pointing to a function object when it is used as the name
 #' of the function in a call.
 #'
-#' See examples and `browseVignettes('matrioshka')` for more details.
+#' See examples and `browseVignettes('oshka')` for more details.
 #'
 #' @export
 #' @inheritParams base::eval
