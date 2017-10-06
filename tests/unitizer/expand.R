@@ -74,9 +74,32 @@ unitizer_sect("shield", {
 
   expand(bquote(a4 & .(I(quote((b4))))))
   expand(bquote(a4 & .(I(quote(a4 & b4)))))
+
+  xzw <- uvt <- NULL  # make sure not lang objects
+  aaa <- quote(xzw > 3)
+  bbb <- quote(xzw < 10)
+  ccc <- quote(aaa & bbb)
+
+  expand(I(ccc))  # add the `AsIs` class to `ccc` with `I`
+
+  ccd <- bquote(aaa & .(I(quote((bbb)))))
+  expand(ccd)
+
+  cce <- ccc
+  cce[[3]] <- I(quote((bbb)))
+  expand(cce)
+
+  expand(aaa ~ bbb)
+  expand(aaa ~ bbb, shield=FALSE)
+
+  ## errors
+
+  expand(aaa ~ bbb, shield=1:3)
+  expand(aaa ~ bbb, shield=NA)
 })
 
-# this next block should probably be last given we can't really `rm`
+# this next block should probably be last given we can't really `rm` the masked
+# `expression` we created
 
 unitizer_sect("expressions", {
   exp.a <- quote(1 + 1)

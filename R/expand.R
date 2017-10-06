@@ -6,8 +6,9 @@
 
 expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
   if(
-    (length(shield) && !any(class(lang) %in% shield)) ||
-    !is.object(lang)
+    !is.object(lang) ||
+    (is.logical(shield) && !shield) ||
+    (is.character(shield) && !any(class(lang) %in% shield))
   ) {
     if(is.symbol(lang)) {
       symb.as.chr <- as.character(lang)
@@ -45,13 +46,18 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' Finds symbols in quoted R language objects and recursively replaces them with
 #' any language objects that those symbols point to.  This leads to an expanded
 #' language object that can be evaluated.  Language objects are objects of type
-#' "symbol", "language", or "expression".
+#' "symbol", "language", or "expression", though only unclassed language
+#' is expanded by default.
+#'
+#' @section Programmable NSE:
 #'
 #' The expansion can be used to implement programmable Non-Standard Evaluation
 #' (NSE hereafter).  Users can create complex quoted language expressions from
 #' simple ones by combining them as they would tokens in standard R expressions.
 #' Then, a programmable NSE aware function can use `expand` to turn the quoted
-#' language into usable form.
+#' language into usable form.  See examples.
+#'
+#' @section Expansion mechanics:
 #'
 #' During the recursive expansion, symbols are looked up through the search
 #' path in the same way as standard R evaluation looks up symbols.  One subtlety
@@ -67,15 +73,24 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' not mask a symbol pointing to a function object when it is used as the name
 #' of the function in a call.
 #'
+#' You can prevent expansion of portions of language by giving that language a
+#' class since the default behavior is to keep classed language unexpanded.
+#' This is why formulas are not expanded by default.  Be careful though that you
+#' do not give a symbol a class as that is bad practice and will become an R
+#' runtime error in the future.  See the `shield` parameter and examples.
+#'
 #' See examples and `browseVignettes('oshka')` for more details.
 #'
 #' @export
 #' @inheritParams base::eval
-#' @param shield character language objects that inherit from any classes
-#'   defined in this parameter will not be expanded.  An empty vector (default)
-#'   means no classed language (e.g. formulas) will be expanded.
+#' @param shield TRUE, FALSE, or character, determines what portions of quoted
+#'   language are shielded from expansion.  TRUE, the default, means that any
+#'   any classed language (e.g. formula) will be left unexpanded.  If FALSE all
+#'   language will be expanded, irrespective of class.  If character, then any
+#'   classed objects with classes in the vector will be left unexpanded, and all
+#'   others will be expanded.
 #' @return If the input is a language object, that object with all symbols
-#'   recursively substituted, otherwise the input unchanged.
+#'   recursively expanded, otherwise the input unchanged.
 #' @examples
 #' xzw <- uvt <- NULL  # make sure not lang objects
 #' aaa <- quote(xzw > 3)
@@ -104,20 +119,39 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' subset2(iris, Sepal.Width > 4.3)
 #' iris.sub <- quote(Sepal.Width > 4.3)
 #' subset2(iris, iris.sub)
+#'
+#' ## Shielding
+#' expand(I(ccc))  # add the `AsIs` class to `ccc` with `I`
+#' expand(ccc)
+#'
+#' ## Notice extra set of parentheses we use around
+#' ## `quote((bbb))` as otherwise we would attach attributes
+#' ## to a symbol:
+#' ccd <- bquote(aaa & .(I(quote((bbb)))))
+#' expand(ccd)
+#'
+#' ## Equivalently
+#' cce <- ccc
+#' cce[[3]] <- I(quote((bbb)))
+#' expand(cce)
+#'
+#' ## Formulas not expanded by default, but can be forced
+#' ## to expand by setting `shield` to FALSE
+#' expand(aaa ~ bbb)
+#' expand(aaa ~ bbb, shield=FALSE)
 
 expand <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv(),
-  shield=character()
+  shield=TRUE
 ) {
-  if(!is.character(shield) || anyNA(shield))
-    stop("Argument `shield` must be character with no NAs")
-  if(!is.language(expr)) {
-    expr
-  } else {
-    envir.proc <- env_resolve(envir, enclos, internal=TRUE)
-    expand_int(
-      expr, envir=envir.proc, symbols=character(), mode="any", shield=shield
-    )
-  }
+  if(
+    !is.character(shield) &&
+    (!is.logical(shield) || !isTRUE(shield %in% c(TRUE, FALSE)))
+  )
+    stop("Argument `shield` must be TRUE, FALSE, or character")
+  envir.proc <- env_resolve(envir, enclos, internal=TRUE)
+  expand_int(
+    expr, envir=envir.proc, symbols=character(), mode="any", shield=shield
+  )
 }
