@@ -1,34 +1,34 @@
 ## ----global_options, echo=FALSE------------------------------------------
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(recsub)
+library(oshka)
 
 ## ------------------------------------------------------------------------
 subset(iris, Sepal.Width > 4.1)
 
 ## ------------------------------------------------------------------------
-my.exp.a <- quote(Sepal.Width > 4.1)
-subset(iris, my.exp.a)
+exp.a <- quote(Sepal.Width > 4.1)
+subset(iris, exp.a)
 
 ## ------------------------------------------------------------------------
 subset2 <- function(x, subset) {
-  sub.exp <- recsub(substitute(subset), x, parent.frame())
+  sub.exp <- expand(substitute(subset), x, parent.frame())
   sub.val <- eval(sub.exp, x, parent.frame())
   x[!is.na(sub.val) & sub.val, ]
 }
-subset2(iris, my.exp.a)
+subset2(iris, exp.a)
 
 ## ----rec_ex_1------------------------------------------------------------
-my.exp.b <- quote(Species == 'virginica')
-my.exp.c <- quote(Sepal.Width > 3.6)
-my.exp.d <- quote(my.exp.b & my.exp.c)
+exp.b <- quote(Species == 'virginica')
+exp.c <- quote(Sepal.Width > 3.6)
+exp.d <- quote(exp.b & exp.c)
 
-subset2(iris, my.exp.d)
+subset2(iris, exp.d)
 
 ## ------------------------------------------------------------------------
 subset3 <- function(x, subset, select, drop=FALSE) {
   frm <- parent.frame()  # as per note in ?parent.frame, better to call here
-  sub.q <- recsub(substitute(subset), x, frm)
-  sel.q <- recsub(substitute(select), x, frm)
+  sub.q <- expand(substitute(subset), x, frm)
+  sel.q <- expand(substitute(select), x, frm)
   eval(bquote(base::subset(.(x), .(sub.q), .(sel.q), drop=.(drop))), frm)
 }
 
@@ -42,7 +42,6 @@ subset3(iris, sub & col > 5.5, col:Petal.Length)
 col.a <- quote(I_dont_exist)
 col.b <- quote(Sepal.Length)
 sub.a <- quote(stop("all hell broke loose"))
-sub.b <- quote(stop("all hell broke loose"))
 threshold <- 3.35
 
 local({
@@ -79,11 +78,11 @@ local({
 #  dplyr::filter(iris, !!rlang.d)
 
 ## ----rec_ex_1, eval=FALSE------------------------------------------------
-#  my.exp.b <- quote(Species == 'virginica')
-#  my.exp.c <- quote(Sepal.Width > 3.6)
-#  my.exp.d <- quote(my.exp.b & my.exp.c)
+#  exp.b <- quote(Species == 'virginica')
+#  exp.c <- quote(Sepal.Width > 3.6)
+#  exp.d <- quote(exp.b & exp.c)
 #  
-#  subset2(iris, my.exp.d)
+#  subset2(iris, exp.d)
 
 ## ----eval=FALSE----------------------------------------------------------
 #  rlang_virginica <- function(subset) {
@@ -92,7 +91,7 @@ local({
 #  }
 
 ## ----eval=FALSE----------------------------------------------------------
-#  recub_virginica <- function(subset) {
+#  oshka_virginica <- function(subset) {
 #    subset <- bquote(Species == 'virginica' & .(substitute(subset)))
 #    eval(bquote(.(subset2)(iris, .(subset))), parent.frame())
 #  }

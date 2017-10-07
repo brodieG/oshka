@@ -13,7 +13,7 @@
 <meta name="author" content="Brodie Gaslam" />
 
 
-<title>Programmable Non-Standard Evaluation</title>
+<title>oshka - Programmable NSE</title>
 
 
 
@@ -67,47 +67,47 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 
 
-<h1 class="title toc-ignore">Programmable Non-Standard Evaluation</h1>
+<h1 class="title toc-ignore">oshka - Programmable NSE</h1>
 <h4 class="author"><em>Brodie Gaslam</em></h4>
 
 
 <div id="TOC">
 <ul>
-<li><a href="#programmable-nse">Programmable NSE</a></li>
+<li><a href="#programmable-non-standard-evaluation">Programmable Non-Standard Evaluation</a></li>
 <li><a href="#forwarding-nse-arguments-to-nse-functions">Forwarding NSE Arguments to NSE Functions</a></li>
 <li><a href="#other-considerations">Other Considerations</a></li>
 <li><a href="#versus-rlang">Versus <code>rlang</code></a></li>
 </ul>
 </div>
 
-<div id="programmable-nse" class="section level2">
-<h2>Programmable NSE</h2>
-<p>Non-Standard Evaluation (NSE hereafter) occurs when R expressions are captured and evaluated in a manner different than if they had been executed without intervention. <code>subset</code> is a canonical example:</p>
+<div id="programmable-non-standard-evaluation" class="section level2">
+<h2>Programmable Non-Standard Evaluation</h2>
+<p>Non-Standard Evaluation (NSE hereafter) occurs when R expressions are captured and evaluated in a manner different than if they had been executed without intervention. <code>subset</code> is a canonical example, which we use here with the built-in <code>iris</code> data set:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">subset</span>(iris, Sepal.Width &gt;<span class="st"> </span><span class="fl">4.1</span>)</code></pre></div>
 <pre><code>   Sepal.Length Sepal.Width Petal.Length Petal.Width Species
 16          5.7         4.4          1.5         0.4  setosa
 34          5.5         4.2          1.4         0.2  setosa</code></pre>
 <p><code>Sepal.Width</code> does not exist in the global environment, yet this works because <code>subset</code> captures the expression and evaluates it within <code>iris</code>.</p>
 <p>A limitation of NSE is that it is difficult to use programmatically:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">my.exp.a &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">4.1</span>)
-<span class="kw">subset</span>(iris, my.exp.a)</code></pre></div>
-<pre><code>Error in subset.data.frame(iris, my.exp.a): 'subset' must be logical</code></pre>
-<p><code>recsub</code> facilitates programmable NSE, as with this simplified version of <code>subset</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.a &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">4.1</span>)
+<span class="kw">subset</span>(iris, exp.a)</code></pre></div>
+<pre><code>Error in subset.data.frame(iris, exp.a): 'subset' must be logical</code></pre>
+<p><code>oshka::expand</code> facilitates programmable NSE, as with this simplified version of <code>subset</code>:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subset2 &lt;-<span class="st"> </span>function(x, subset) {
-  sub.exp &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
+  sub.exp &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(subset), x, <span class="kw">parent.frame</span>())
   sub.val &lt;-<span class="st"> </span><span class="kw">eval</span>(sub.exp, x, <span class="kw">parent.frame</span>())
   x[!<span class="kw">is.na</span>(sub.val) &amp;<span class="st"> </span>sub.val, ]
 }
-<span class="kw">subset2</span>(iris, my.exp.a)</code></pre></div>
+<span class="kw">subset2</span>(iris, exp.a)</code></pre></div>
 <pre><code>   Sepal.Length Sepal.Width Petal.Length Petal.Width Species
 16          5.7         4.4          1.5         0.4  setosa
 34          5.5         4.2          1.4         0.2  setosa</code></pre>
-<p><code>recsub</code> is recursive:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">my.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span class="st"> 'virginica'</span>)
-my.exp.c &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">3.6</span>)
-my.exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(my.exp.b &amp;<span class="st"> </span>my.exp.c)
+<p><code>expand</code> is recursive:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span class="st"> 'virginica'</span>)
+exp.c &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">3.6</span>)
+exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(exp.b &amp;<span class="st"> </span>exp.c)
 
-<span class="kw">subset2</span>(iris, my.exp.d)</code></pre></div>
+<span class="kw">subset2</span>(iris, exp.d)</code></pre></div>
 <pre><code>    Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
 118          7.7         3.8          6.7         2.2 virginica
 132          7.9         3.8          6.4         2.0 virginica</code></pre>
@@ -118,8 +118,8 @@ my.exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(my.exp.b &a
 <p>If you wish to write a function that uses a programmable NSE function and forwards its NSE arguments to it, you must ensure the NSE expressions are evaluated in the correct environment, typically the <code>parent.frame()</code>. This is no different than with normal NSE functions. An example:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subset3 &lt;-<span class="st"> </span>function(x, subset, select, <span class="dt">drop=</span><span class="ot">FALSE</span>) {
   frm &lt;-<span class="st"> </span><span class="kw">parent.frame</span>()  <span class="co"># as per note in ?parent.frame, better to call here</span>
-  sub.q &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(subset), x, frm)
-  sel.q &lt;-<span class="st"> </span><span class="kw">recsub</span>(<span class="kw">substitute</span>(select), x, frm)
+  sub.q &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(subset), x, frm)
+  sel.q &lt;-<span class="st"> </span><span class="kw">expand</span>(<span class="kw">substitute</span>(select), x, frm)
   <span class="kw">eval</span>(<span class="kw">bquote</span>(base::<span class="kw">subset</span>(.(x), .(sub.q), .(sel.q), <span class="dt">drop=</span>.(drop))), frm)
 }</code></pre></div>
 <p>We use <code>bquote</code> to assemble our substituted call and <code>eval</code> to evaluate it in the correct frame. The parts of the call that should evaluate in <code>subset3</code> are escaped with <code>.()</code>. This requires some work from the programmer, but the user reaps the benefits:</p>
@@ -131,12 +131,11 @@ sub &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span 
 15          5.8         4.0          1.2
 16          5.7         4.4          1.5
 19          5.7         3.8          1.7</code></pre>
-<p>Notice that we used <code>recsub</code> with the base NSE function <code>subset</code>. Because <code>recsub</code> just generates language objects, you can use it with any NSE function.</p>
+<p>Notice that we used <code>expand</code> with the base NSE function <code>subset</code>. Because <code>expand</code> just generates language objects, you can use it with any NSE function.</p>
 <p>The forwarding is robust to unusual evaluation:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">col.a &lt;-<span class="st"> </span><span class="kw">quote</span>(I_dont_exist)
 col.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Length)
 sub.a &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">stop</span>(<span class="st">&quot;all hell broke loose&quot;</span>))
-sub.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">stop</span>(<span class="st">&quot;all hell broke loose&quot;</span>))
 threshold &lt;-<span class="st"> </span><span class="fl">3.35</span>
 
 <span class="kw">local</span>({
@@ -179,29 +178,35 @@ my_fun_outer &lt;-<span class="st"> </span>function(x) {
 </div>
 <div id="versus-rlang" class="section level2">
 <h2>Versus <code>rlang</code></h2>
-<p><code>recsub</code> is simple in design and purpose. It exports a single function that substitutes expressions into other expressions. It hews closely to R semantics. <code>rlang</code> is more ambitious and more complex as a result. To use it you must learn new concepts and semantics.</p>
+<p><code>oshka</code> is simple in design and purpose. It exports a single function that substitutes expressions into other expressions. It hews closely to R semantics. <code>rlang</code> is more ambitious and more complex as a result. To use it you must learn new concepts and semantics.</p>
 <p>One manifestation of the additional complexity in <code>rlang</code> is that you must unquote expressions to use them:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">rlang.b &lt;-<span class="st"> </span><span class="kw">quo</span>(Species ==<span class="st"> 'virginica'</span>)
 rlang.c &lt;-<span class="st"> </span><span class="kw">quo</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">3.6</span>)
 rlang.d &lt;-<span class="st"> </span><span class="kw">quo</span>(!!rlang.b &amp;<span class="st"> </span>!!rlang.c)
 
 dplyr::<span class="kw">filter</span>(iris, !!rlang.d)</code></pre></div>
-<p>As shown earlier, the <code>recsub</code> version is more straightforward as it uses the standard <code>quote</code> function and does not require unquoting:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">my.exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span class="st"> 'virginica'</span>)
-my.exp.c &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">3.6</span>)
-my.exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(my.exp.b &amp;<span class="st"> </span>my.exp.c)
+<p>As shown earlier, the <code>expand</code> version is more straightforward as it uses the standard <code>quote</code> function and does not require unquoting:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">exp.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span class="st"> 'virginica'</span>)
+exp.c &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Width &gt;<span class="st"> </span><span class="fl">3.6</span>)
+exp.d &lt;-<span class="st"> </span><span class="kw">quote</span>(exp.b &amp;<span class="st"> </span>exp.c)
 
-<span class="kw">subset2</span>(iris, my.exp.d)</code></pre></div>
+<span class="kw">subset2</span>(iris, exp.d)</code></pre></div>
 <p>On the other hand, forwarding of NSE arguments to NSE functions is simpler in <code>rlang</code> due to environment capture feature of quosures:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">rlang_virginica &lt;-<span class="st"> </span>function(subset) {
   subset &lt;-<span class="st"> </span><span class="kw">enquo</span>(subset)
   dplyr::<span class="kw">filter</span>(iris, Species ==<span class="st"> 'virginica'</span> &amp;<span class="st"> </span>!!subset)
 }</code></pre></div>
-<p>Because <code>recsub</code> does not capture environments, we must resort to the <code>eval</code>/<code>bquote</code> pattern:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">recub_virginica &lt;-<span class="st"> </span>function(subset) {
+<p>Because <code>oshka</code> does not capture environments, we must resort to the <code>eval</code>/<code>bquote</code> pattern:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oshka_virginica &lt;-<span class="st"> </span>function(subset) {
   subset &lt;-<span class="st"> </span><span class="kw">bquote</span>(Species ==<span class="st"> 'virginica'</span> &amp;<span class="st"> </span>.(<span class="kw">substitute</span>(subset)))
   <span class="kw">eval</span>(<span class="kw">bquote</span>(.(subset2)(iris, .(subset))), <span class="kw">parent.frame</span>())
 }</code></pre></div>
+<p><code>oshka</code> minimizes the complexity in what we see as the most common use case, and sticks to R semantics for the more complicated ones.</p>
+<p>For additional discussion on <code>rlang</code> see the following presentations:</p>
+<ul>
+<li><a href="https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf">Tidyeval useR 2017 Presentation</a></li>
+<li><a href="https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf">Tidy Evaluation (Hygienic fexprs)</a></li>
+</ul>
 </div>
 
 

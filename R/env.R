@@ -12,9 +12,9 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
   env.proc <- if(!is.environment(envir)) {
     if(!is.list(envir) && !is.pairlist(envir) && !is.numeric(envir)) {
       stop(
-        "Argument `envir` must be `environment`, `list`, `pairlist`, ",
-        "or `numeric`",
-        call=sys.call(-2)
+        'Argument "envir" must be "environment", "list", "pairlist", ',
+        'or "numeric" (is "', typeof(envir), '")',
+        call.=sys.call(-2)
       )
     }
     # In theory this should not copy any of the contents of the list or pair
@@ -22,7 +22,7 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
 
     if(is.numeric(envir)) {
       # In internal mode we need to subtract one from negative numbers because
-      # we are calling this fun from within `evalr` or `recsub`.  We only need
+      # we are calling this fun from within `expand`.  We only need
       # to do these for strictly neg numbers b/c all others are absolute
       # starting from root of calls
 
@@ -50,5 +50,43 @@ env_resolve <- function(envir, enclos, internal=FALSE) {
   } else envir
 
   env.proc
+}
+## Find Symbol and Environment it is Bound in
+##
+## Like `get`, except that it returns the symbol value and the environment it
+## was found in.
+##
+## @param symb.chr a character(1L) representation of symbol name
+## @param mode "any" or "function"
+## @return a list with the object and environment it was found in if there was
+##   one, NULL otherwise
+
+get_with_env <- function(symb.chr, envir, mode="any") {
+  stopifnot(mode %in% c("any", "function"), is.environment(envir))
+  if(!identical(envir, emptyenv())) {
+    # checking for NULL alone is not sufficient
+    ex.try <- try(exists(symb.chr, envir=envir, inherits=FALSE))
+    if(inherits(ex.try, "try-error")) {
+      # nocov start
+      stop("Internal error: exists failed, envir type: ", typeof(envir))
+      # nocov end
+    }
+    if(ex.try) {
+      obj.val <- tryCatch(
+        envir[[symb.chr]],
+        error=function(e) stop(
+          "Error evaluating promise for symbol `", symb.chr, "` in ",
+          "environment ", envir
+        )
+      )
+      if(
+        mode == "function" && (
+          mode(obj.val) != "function" && !is.language(obj.val)
+        )
+      ) {
+        get_with_env(symb.chr, envir=parent.env(envir))
+      } else list(obj=obj.val, envir=envir)
+    } else get_with_env(symb.chr, envir=parent.env(envir))
+  }
 }
 

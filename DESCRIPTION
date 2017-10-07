@@ -1,20 +1,19 @@
-Package: recsub
+Package: oshka
 Title: Programmable Non-Standard Evaluation
-Description: Tools to implement programmable Non-Standard Evaluation (NSE).
-  `recsub` works by recursively substituting symbols that point to language
-  objects.  The semantics are the same as they are for non-language R objects so
-  usage is intuitive.
-Version: 0.0.1.9002
+Description: Expands quoted language by recursively replacing any symbols that
+    point to language objects with that language.  Users can construct complex
+    language objects from simple ones, which they can then expand and evaluate.
+Version: 0.1.0
 Authors@R: c(
     person("Brodie", "Gaslam", email="brodie.gaslam@yahoo.com",
     role=c("aut", "cre"))
     )
 Depends:
-    R (>= 3.3.3)
+    R (>= 3.3.2)
 License: GPL (>=2)
 LazyData: true
-URL: https://github.com/brodieG/recsub
-BugReports: https://github.com/brodieG/recsub/issues
+URL: https://github.com/brodieG/oshka
+BugReports: https://github.com/brodieG/oshka/issues
 VignetteBuilder: knitr
 Imports:
     utils,
@@ -23,8 +22,6 @@ Suggests:
     knitr,
     rmarkdown,
     unitizer,
-    covr,
-    dplyr,
-    rlang
+    covr
 RoxygenNote: 6.0.1
 Roxygen: list(markdown = TRUE)

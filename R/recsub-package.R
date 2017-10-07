@@ -1,12 +1,11 @@
 #' Programmable Non-Standard Evaluation
 #'
-#' Tools to implement programmable Non-Standard Evaluation (NSE).  `recsub`
-#' works by recursively substituting symbols that point to language objects.
-#' The semantics are the same as they are for non-language R objects so usage is
-#' intuitive.
+#' Expands quoted language by recursively replacing any symbols that point to
+#' language objects with that language.  Users can construct complex language
+#' objects from simple ones, which they can then expand and evaluate.
 #'
 #' @docType package
-#' @name recsub-package
+#' @name oshka-package
 
 NULL
 

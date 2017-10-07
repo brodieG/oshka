@@ -1,9 +1,7 @@
 ## ----global_options, echo=FALSE------------------------------------------
 knitr::opts_chunk$set(error=TRUE, comment=NA)
-library(recsub)
-
-## ------------------------------------------------------------------------
-head(state.data, 2)
+library(oshka)
+knitr::read_chunk('../tests/helper/ersatz.R')
 
 ## ---- eval=FALSE---------------------------------------------------------
 #  group_r <- function(x, ...) {...}     # similar to dplyr::group_by
@@ -11,14 +9,12 @@ head(state.data, 2)
 #  summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
 #  `%$%` <- function(x, y) {...}         # similar to the magrittr pipe
 
-## ----dplyr_extra_0, echo=FALSE-------------------------------------------
+## ---- echo=FALSE---------------------------------------------------------
 summarize_r <- function(x, ...)
   eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
-
-## ----dplyr_extra_1, echo=FALSE-------------------------------------------
 summarize_r_l <- function(x, els) {
   frm <- parent.frame()
-  exps.sub <- recsub(substitute(els), x, frm)
+  exps.sub <- expand(substitute(els), x, frm)
   if(is.null(exps.sub)) x else {
     # compute groups and splits
     grps <- make_grps(x)        # see appendix
@@ -34,25 +30,22 @@ summarize_r_l <- function(x, els) {
     list_to_df(res.list, grp.split, splits)   # see appendix
   }
 }
-
-## ----dplyr_extra_2, echo=FALSE-------------------------------------------
-
-# -- Grouping ------------------------------------------------------------------
+## - Grouping ------------------------------------------------------------------ 
 
 group_r <- function(x, ...)
   eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 group_r_l <- function(x, els) {
-  exps.sub <- recsub(substitute(els), x, parent.frame())
+  exps.sub <- expand(substitute(els), x, parent.frame())
   if(is.null(exps.sub)) x else {
     if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
       exps.sub <- call("list", exps.sub)
     structure(x, .GRP=dot_list(exps.sub, "G"))
 } }
-# -- Filtering -----------------------------------------------------------------
+## - Filtering -----------------------------------------------------------------
 
 filter_r <- function(x, subset) {
-  sub.exp <- substitute(subset)
-  sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+  sub.exp <- expand(substitute(subset), x, parent.frame())
+  sub.val <- eval(sub.exp, x, parent.frame())
   as.data.frame(
     if(!is.null(sub.val)) {
       as.data.frame(x)[
@@ -61,15 +54,15 @@ filter_r <- function(x, subset) {
     } else x
   )
 }
-# -- Pipe ----------------------------------------------------------------------
+## - Pipe ----------------------------------------------------------------------
 
 `%$%` <- function(x, y) {
-  x.sub <- recsub(substitute(x), parent.frame())
-  y.sub <- recsub(substitute(y), parent.frame())
+  x.sub <- expand(substitute(x), parent.frame())
+  y.sub <- expand(substitute(y), parent.frame())
   y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
   eval(sub_dat(y.sub, x), parent.frame())
 }
-# -- Helper Funs ---------------------------------------------------------------
+## - Helper Funs ---------------------------------------------------------------
 
 # Takes result of `substitute(list(...))` and returns a list of quoted language
 # object with nice names.
@@ -114,19 +107,19 @@ list_to_df <- function(dat, grp, splits) {
 }
 
 ## ------------------------------------------------------------------------
-state.data %$%
-  filter_r(Region %in% c('Northeast', 'South')) %$%
-  group_r(Region) %$%
-  summarize_r(weighted.mean(Income, Population))
+CO2 %$%                              # built-in dataset
+  filter_r(grepl("[12]", Plant)) %$%
+  group_r(Type, Treatment) %$%
+  summarize_r(mean(conc), mean(uptake))
 
-## ----dplyr_extra_0, eval=FALSE-------------------------------------------
+## ----eval=FALSE----------------------------------------------------------
 #  summarize_r <- function(x, ...)
 #    eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 
-## ----dplyr_extra_1, eval=FALSE-------------------------------------------
+## ----eval=FALSE----------------------------------------------------------
 #  summarize_r_l <- function(x, els) {
 #    frm <- parent.frame()
-#    exps.sub <- recsub(substitute(els), x, frm)
+#    exps.sub <- expand(substitute(els), x, frm)
 #    if(is.null(exps.sub)) x else {
 #      # compute groups and splits
 #      grps <- make_grps(x)        # see appendix
@@ -144,7 +137,7 @@ state.data %$%
 #  }
 
 ## ----eval=FALSE----------------------------------------------------------
-#    exps.sub <- recsub(substitute(els), x, frm)
+#    exps.sub <- expand(substitute(els), x, frm)
 
 ## ----eval=FALSE----------------------------------------------------------
 #      grps <- make_grps(x)        # see appendix
@@ -162,19 +155,21 @@ state.data %$%
 #      list_to_df(res.list, grp.split, splits)   # see appendix
 
 ## ------------------------------------------------------------------------
-f.exp <- quote(Region %in% c('Northeast', 'South'))
-s.exp <- quote(weighted.mean(Income, Population))
+f.exp <- quote(grepl("[12]", Plant))
+s.exp <- quote(mean(uptake))
 
-state.data %$%
-  filter_r(f.exp & Population > 1000) %$%
-  group_r(Region) %$%
+CO2 %$%
+  filter_r(f.exp & conc > 500) %$%
+  group_r(Type, Treatment) %$%
   summarize_r(round(s.exp))
 
 ## ------------------------------------------------------------------------
-flt <- quote(filter_r(f.exp & Population > 1000))
-grp.and.sum <- quote(group_r(Region) %$% summarize_r(round(s.exp)))
+f.exp.b <- quote(filter_r(grepl("[12]", Plant) & conc > 500))
+g.exp.b <- quote(group_r(Type, Treatment))
+s.exp.b <- quote(summarize_r(mean(conc), mean(uptake)))
+exp <- quote(f.exp.b %$% g.exp.b %$% s.exp.b)
 
-state.data %$% flt %$% grp.and.sum
+CO2 %$% exp
 
 ## ------------------------------------------------------------------------
 as.super_df <- function(x) {
@@ -191,54 +186,54 @@ as.super_df <- function(x) {
 }
 
 ## ------------------------------------------------------------------------
-sd <- as.super_df(state.data)
-sd[f.exp, s.exp, by=Region]
+co2 <- as.super_df(CO2)
+co2[f.exp, s.exp, by=Type]
 
-exp.a <- quote(max(Illiteracy))
-exp.b <- quote(min(Illiteracy))
+exp.a <- quote(max(conc))
+exp.b <- quote(min(conc))
 
-sd[f.exp, list(exp.a, exp.b), by=list(Region, HasNfl)][1:3,]
+co2[f.exp, list(exp.a, exp.b), by=list(Type, Treatment)][1:3,]
 
 exp.c <- quote(list(exp.a, exp.b))
-exp.d <- quote(list(Region, HasNfl))
+exp.d <- quote(list(Type, Treatment))
 
-sd[f.exp, exp.c, by=exp.d][1:3,]
+co2[f.exp, exp.c, by=exp.d][1:3,]
 
 
 ## ------------------------------------------------------------------------
 exps <- quote(list(stop("boo"), stop("ya")))  # don't use this
-g.exp <- quote(State)                         # nor this
+g.exp <- quote(Whatever)                         # nor this
 
 local({
   summarize_r_l <- function(x, y) stop("boom")  # nor this
-  max.inc <- quote(max(Income))                 # use this
-  min.inc <- quote(min(Income))                 # and this
-  exps <- list(max.inc, min.inc)
+  max.upt <- quote(max(uptake))                 # use this
+  min.upt <- quote(min(uptake))                 # and this
+  exps <- list(max.upt, min.upt)
 
-  g.exp <- quote(Region)                        # and this
+  g.exp <- quote(Treatment)                        # and this
 
-  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+  lapply(exps, function(y) co2[f.exp, y, by=g.exp])
 })
 
 ## ------------------------------------------------------------------------
 
-exp <- quote(data.frame(pop=Population) %$% summarize_r(new.pop=pop * 1.2))
+exp <- quote(data.frame(upt=uptake) %$% summarize_r(new.upt=upt * 1.2))
 
 local({
-  exps <- list(quote(sum(exp$new.pop)), quote(sum(Population)))
-  g.exp <- quote(Region)
-  lapply(exps, function(y) sd[f.exp, y, by=g.exp])
+  exps <- list(quote(sum(exp$new.upt)), quote(sum(uptake)))
+  g.exp <- quote(Treatment)
+  lapply(exps, function(y) co2[f.exp, y, by=g.exp])
 })
 
 
-## ----dplyr_extra_0, eval=FALSE-------------------------------------------
+## ----eval=FALSE----------------------------------------------------------
+#  ## - Summarize -----------------------------------------------------------------
+#  
 #  summarize_r <- function(x, ...)
 #    eval(bquote(.(summarize_r_l)(.(x), .(substitute(list(...))))), parent.frame())
-
-## ----dplyr_extra_1, eval=FALSE-------------------------------------------
 #  summarize_r_l <- function(x, els) {
 #    frm <- parent.frame()
-#    exps.sub <- recsub(substitute(els), x, frm)
+#    exps.sub <- expand(substitute(els), x, frm)
 #    if(is.null(exps.sub)) x else {
 #      # compute groups and splits
 #      grps <- make_grps(x)        # see appendix
@@ -254,25 +249,22 @@ local({
 #      list_to_df(res.list, grp.split, splits)   # see appendix
 #    }
 #  }
-
-## ----dplyr_extra_2, eval=FALSE-------------------------------------------
-#  
-#  # -- Grouping ------------------------------------------------------------------
+#  ## - Grouping ------------------------------------------------------------------ 
 #  
 #  group_r <- function(x, ...)
 #    eval(bquote(.(group_r_l)(.(x), .(substitute(list(...))))), parent.frame())
 #  group_r_l <- function(x, els) {
-#    exps.sub <- recsub(substitute(els), x, parent.frame())
+#    exps.sub <- expand(substitute(els), x, parent.frame())
 #    if(is.null(exps.sub)) x else {
 #      if(!is.call(exps.sub) || exps.sub[[1L]] != quote(list))
 #        exps.sub <- call("list", exps.sub)
 #      structure(x, .GRP=dot_list(exps.sub, "G"))
 #  } }
-#  # -- Filtering -----------------------------------------------------------------
+#  ## - Filtering -----------------------------------------------------------------
 #  
 #  filter_r <- function(x, subset) {
-#    sub.exp <- substitute(subset)
-#    sub.val <- evalr(sub.exp, envir=x, enclos=parent.frame())
+#    sub.exp <- expand(substitute(subset), x, parent.frame())
+#    sub.val <- eval(sub.exp, x, parent.frame())
 #    as.data.frame(
 #      if(!is.null(sub.val)) {
 #        as.data.frame(x)[
@@ -281,15 +273,15 @@ local({
 #      } else x
 #    )
 #  }
-#  # -- Pipe ----------------------------------------------------------------------
+#  ## - Pipe ----------------------------------------------------------------------
 #  
 #  `%$%` <- function(x, y) {
-#    x.sub <- recsub(substitute(x), parent.frame())
-#    y.sub <- recsub(substitute(y), parent.frame())
+#    x.sub <- expand(substitute(x), parent.frame())
+#    y.sub <- expand(substitute(y), parent.frame())
 #    y.list <- if(!is.call(y.sub)) list(y.sub) else as.list(y.sub)
 #    eval(sub_dat(y.sub, x), parent.frame())
 #  }
-#  # -- Helper Funs ---------------------------------------------------------------
+#  ## - Helper Funs ---------------------------------------------------------------
 #  
 #  # Takes result of `substitute(list(...))` and returns a list of quoted language
 #  # object with nice names.
