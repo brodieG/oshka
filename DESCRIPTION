@@ -3,7 +3,7 @@ Title: Programmable Non-Standard Evaluation
 Description: Expands quoted language by recursively replacing any symbols that
     point to language objects with that language.  Users can construct complex
     language objects from simple ones, which they can then expand and evaluate.
-Version: 0.0.1.9002
+Version: 0.1.0
 Authors@R: c(
     person("Brodie", "Gaslam", email="brodie.gaslam@yahoo.com",
     role=c("aut", "cre"))
