@@ -10,9 +10,12 @@ unitizer_sect("Env levels", {
     aHrXaasBHJEJKdf <- "mid-level"
     local({
       aHrXaasBHJEJKdf <- "inner-level"
+      if(n < 0) n <- max(sys.nframe() + n + 1, 0)
+      eval.res <- try(eval(quote(aHrXaasBHJEJKdf), n))
+      evalr.res <- try(eval(expand(quote(aHrXaasBHJEJKdf), n), n))
       c(
-        eval=eval(quote(aHrXaasBHJEJKdf), n),
-        evalr=eval(expand(quote(aHrXaasBHJEJKdf), n), n)
+        eval=if(inherits(eval.res, "try-error")) NA else eval.res,
+        evalr=if(inherits(evalr.res, "try-error")) NA else evalr.res
       )
     })
   }

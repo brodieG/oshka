@@ -117,3 +117,12 @@ unitizer_sect("expressions", {
   expression <- base::expression  # can't `rm`
 })
 
+unitizer_sect("tryCatch", {
+  a5 <- quote(1 + 8)
+  tryCatch(expand(a5))
+
+  local({
+    a5 <- quote(1 - 3)
+    tryCatch(expand(a5))
+  })
+})
