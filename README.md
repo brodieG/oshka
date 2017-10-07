@@ -84,16 +84,18 @@ identical to normal NSE functions, with programmability as a bonus.
 
 ## Installation
 
-This package is currently only available on Github, although we intend to
-release it to CRAN shortly.
+This package is proof-of-concept and currently only available on Github,
+although we intend to release it to CRAN shortly.  If it elicits enough interest
+we will re-write the internals in C and add helper functions for common use
+patterns.
 
 
 ```r
 devtools::instal_github('brodieg/oshka')
 ```
 
-This package is proof-of-concept.  Feedback is welcome, particularly if you are
-aware of some NSE pitfalls we may be ignoring.
+Feedback is welcome, particularly if you are aware of some NSE pitfalls we may
+be ignoring.
 
 ## Acknowledgements
 
