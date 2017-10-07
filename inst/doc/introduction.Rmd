@@ -1,0 +1,105 @@
+---
+title: "oshka - Programmable NSE"
+author: "Brodie Gaslam"
+output:
+    rmarkdown::html_vignette:
+        toc: true
+        css: styles.css
+
+vignette: >
+  %\VignetteIndexEntry{Introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(oshka)
+```
+
+```{r child='./rmdhunks/basic.Rmd'}
+```
+```{r child='./rmdhunks/forwarding.Rmd'}
+```
+
+## Other Considerations
+
+One drawback of the `eval`/`bquote`/`.()` pattern is that the actual objects
+inside `.()` are placed on the call stack.  This is not an issue with symbols,
+but can be bothersome with data or functions.  For example, in:
+
+```{r, eval=FALSE}
+my_fun_inner <- function(x) {
+  # ... bunch of code
+  stop("end")
+}
+my_fun_outer <- function(x) {
+  eval(bquote(.(my_fun)(.(x))), parent.frame())
+}
+my_fun_outer(mtcars)
+traceback()
+```
+
+The entire deparsed function definition and data frame will be displayed in
+the traceback, which makes it difficult to see what is happening.  A simple
+work-around is to use:
+
+```{r, eval=FALSE}
+sapply(.traceback(), head, 1)
+sapply(sys.calls(), head, 1)  # sys.calls is similarly affected
+```
+
+## Versus `rlang`
+
+`oshka` is simple in design and purpose.  It exports a single function that
+substitutes expressions into other expressions.  It hews closely to R semantics.
+`rlang` is more ambitious and more complex as a result.  To use it you must
+learn new concepts and semantics.
+
+One manifestation of the additional complexity in `rlang` is that you must
+unquote expressions to use them:
+
+```{r eval=FALSE}
+rlang.b <- quo(Species == 'virginica')
+rlang.c <- quo(Sepal.Width > 3.6)
+rlang.d <- quo(!!rlang.b & !!rlang.c)
+
+dplyr::filter(iris, !!rlang.d)
+```
+
+As shown earlier, the `expand` version is more straightforward as it uses the
+standard `quote` function and does not require unquoting:
+
+```{r rec_ex_1, eval=FALSE}
+```
+
+On the other hand, forwarding of NSE arguments to NSE functions is simpler
+in `rlang` due to environment capture feature of quosures:
+
+```{r eval=FALSE}
+rlang_virginica <- function(subset) {
+  subset <- enquo(subset)
+  dplyr::filter(iris, Species == 'virginica' & !!subset)
+}
+```
+
+Because `oshka` does not capture environments, we must resort to the
+`eval`/`bquote` pattern:
+
+```{r eval=FALSE}
+oshka_virginica <- function(subset) {
+  subset <- bquote(Species == 'virginica' & .(substitute(subset)))
+  eval(bquote(.(subset2)(iris, .(subset))), parent.frame())
+}
+```
+
+`oshka` minimizes the complexity in what we see as the most common use
+case, and sticks to R semantics for the more complicated ones.
+
+For additional discussion on `rlang` see the following presentations:
+
+* [Tidyeval useR 2017 Presentation][1]
+* [Tidy Evaluation (Hygienic fexprs)][2]
+
+[1]: https://schd.ws/hosted_files/user2017/43/tidyeval-user.pdf
+[2]: https://www.r-project.org/dsc/2017/slides/tidyeval-hygienic-fexprs.pdf

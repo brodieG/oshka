@@ -1,0 +1,225 @@
+---
+title: "NSE Functions with `oshka`"
+author: "Brodie Gaslam"
+output:
+    rmarkdown::html_vignette:
+        toc: true
+        css: styles.css
+
+vignette: >
+  %\VignetteIndexEntry{NSE Functions with oshka}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(error=TRUE, comment=NA)
+library(oshka)
+knitr::read_chunk('../tests/helper/ersatz.R')
+```
+
+## Overview
+
+We will implement simplified versions of `dplyr` and `data.table` to illustrate
+how to write programmable NSE functions with `oshka`.  The implementations are
+intentionally limited in functionality, robustness, and speed for the sake of
+simplicity.
+
+## An Ersatz `dplyr`
+
+### Interface
+
+The interface is as follows:
+
+```{r, eval=FALSE}
+group_r <- function(x, ...) {...}     # similar to dplyr::group_by
+filter_r <- function(x, subset) {...} # similar to dplyr::filter
+summarize_r <- function(x, ...) {...} # similar to dplyr::summarise
+`%$%` <- function(x, y) {...}         # similar to the magrittr pipe
+```
+```{r, echo=FALSE}
+<<summarize_r>>
+<<summarize_r_l>>
+<<fo_dplyr_extra>>
+```
+
+Our functions mimic the corresponding `dplyr` ones:
+
+```{r}
+CO2 %$%                              # built-in dataset
+  filter_r(grepl("[12]", Plant)) %$%
+  group_r(Type, Treatment) %$%
+  summarize_r(mean(conc), mean(uptake))
+```
+
+### Implementation
+
+Most of the implementation is not directly related to `oshka` NSE, but we will
+go over `summarize_r` to highlight how those parts integrate with the rest.
+`summarize_r` is just a forwarding function:
+
+```{r eval=FALSE}
+<<summarize_r>>
+```
+
+We use the `eval`/`bquote` pattern to [forward `NSE` arguments][1].  We
+retrieve `summarize_r_l` from the current function frame with `.()`, because
+there is no guarantee we would find it on the search path starting from the
+parent frame.  In this case it happens to be available, but it would not be if
+these functions were in a package.
+
+We present `summarize_r_l` in full for reference, but feel free to skip as we
+highlight the interesting bits next:
+
+```{r eval=FALSE}
+<<summarize_r_l>>
+```
+
+The only `oshka` specific line is the second one:
+
+```{r eval=FALSE}
+  exps.sub <- expand(substitute(els), x, frm)
+```
+
+`els` is the language captured and forwarded by `summarize_r`.  We run `expand`
+on that language with our data `x` as the environment and the parent frame as
+the enclosure.  We then compute the groups:
+
+```{r eval=FALSE}
+    grps <- make_grps(x)        # see appendix
+    splits <- lapply(grps, eval, x, frm)
+```
+
+`make_grps` extracts the grouping expressions generating by `group_r`.  These
+have already been substituted so we evaluate each one with `x` as the
+environment and the parent frame as the enclosure.  We use this to split our
+data into groups:
+
+```{r eval=FALSE}
+    dat.split <- split(x, splits, drop=TRUE)
+```
+
+Finally we can evaluate our `expand`ed expressions within each of the groups:
+
+```{r eval=FALSE}
+    # aggregate
+    res.list <- lapply(
+      dot_list(exps.sub),       # see appendix
+      function(exp) lapply(dat.split, eval, expr=exp, enclos=frm)
+    )
+    list_to_df(res.list, grp.split, splits)   # see appendix
+```
+
+`dot.list` turns `exps.sub` into a list of expressions.  Each expression is then
+evaluated with each data chunk as the environment and the parent frame as the
+enclosure.  Finally `list_to_df` turns our lists of vectors into a data frame.
+
+You can see the rest of the implementation in the [appendix](#appendix).
+
+### Examples
+
+That single `expand` line enables a programmable NSE:
+
+```{r}
+f.exp <- quote(grepl("[12]", Plant))
+s.exp <- quote(mean(uptake))
+
+CO2 %$%
+  filter_r(f.exp & conc > 500) %$%
+  group_r(Type, Treatment) %$%
+  summarize_r(round(s.exp))
+```
+
+Because `%$%` uses `expand` you can even do the following:
+
+```{r}
+f.exp.b <- quote(filter_r(grepl("[12]", Plant) & conc > 500))
+g.exp.b <- quote(group_r(Type, Treatment))
+s.exp.b <- quote(summarize_r(mean(conc), mean(uptake)))
+exp <- quote(f.exp.b %$% g.exp.b %$% s.exp.b)
+
+CO2 %$% exp
+```
+
+## An Ersatz `data.table`
+
+### Implementation
+
+We wish to re-use our ersatz `dplyr` functions to create a `data.table`-like
+interface:
+
+```{r}
+<<super_df>>
+```
+
+Again, we use the `eval`/`bquote` pattern to forward the NSE arguments to our
+NSE functions `filter_r`, `group_r_l`, and `summarize_r_l`.  The pattern
+is not trivial, but it only took six lines of code to transmogrify our
+faux-`dplyr` into a faux-`data.table`.
+
+### Examples
+
+After we add the `super_df` class to our data we can start using it with
+`data.table` semantics, but with programmable NSE:
+
+```{r}
+co2 <- as.super_df(CO2)
+co2[f.exp, s.exp, by=Type]
+
+exp.a <- quote(max(conc))
+exp.b <- quote(min(conc))
+
+co2[f.exp, list(exp.a, exp.b), by=list(Type, Treatment)][1:3,]
+
+exp.c <- quote(list(exp.a, exp.b))
+exp.d <- quote(list(Type, Treatment))
+
+co2[f.exp, exp.c, by=exp.d][1:3,]
+
+```
+
+Despite the forwarding layers the symbols resolve as expected in complex
+circumstances:
+
+```{r}
+exps <- quote(list(stop("boo"), stop("ya")))  # don't use this
+g.exp <- quote(Whatever)                         # nor this
+
+local({
+  summarize_r_l <- function(x, y) stop("boom")  # nor this
+  max.upt <- quote(max(uptake))                 # use this
+  min.upt <- quote(min(uptake))                 # and this
+  exps <- list(max.upt, min.upt)
+
+  g.exp <- quote(Treatment)                        # and this
+
+  lapply(exps, function(y) co2[f.exp, y, by=g.exp])
+})
+```
+
+And we can even nest our `dplyr` and `data.table` for an unholy abomination:
+
+```{r}
+
+exp <- quote(data.frame(upt=uptake) %$% summarize_r(new.upt=upt * 1.2))
+
+local({
+  exps <- list(quote(sum(exp$new.upt)), quote(sum(uptake)))
+  g.exp <- quote(Treatment)
+  lapply(exps, function(y) co2[f.exp, y, by=g.exp])
+})
+
+```
+
+## Appendix
+
+Ersatz `dplyr` implementation:
+
+```{r eval=FALSE}
+## - Summarize -----------------------------------------------------------------
+
+<<summarize_r>>
+<<summarize_r_l>>
+<<fo_dplyr_extra>>
+```
+[1]: ./Introduction.html#forwarding-nse-arguments-to-nse-functions

@@ -1,0 +1,51 @@
+## Forwarding NSE Arguments to NSE Functions
+
+If you wish to write a function that uses a programmable NSE function and
+forwards its NSE arguments to it, you must ensure the NSE expressions are
+evaluated in the correct environment, typically the `parent.frame()`.  This is
+no different than with normal NSE functions.  An example:
+
+```{r}
+subset3 <- function(x, subset, select, drop=FALSE) {
+  frm <- parent.frame()  # as per note in ?parent.frame, better to call here
+  sub.q <- expand(substitute(subset), x, frm)
+  sel.q <- expand(substitute(select), x, frm)
+  eval(bquote(base::subset(.(x), .(sub.q), .(sel.q), drop=.(drop))), frm)
+}
+```
+
+We use `bquote` to assemble our substituted call and `eval` to evaluate it in
+the correct frame.  The parts of the call that should evaluate in `subset3` are
+escaped with `.()`.  This requires some work from the programmer, but the user
+reaps the benefits:
+
+```{r}
+col <- quote(Sepal.Length)
+sub <- quote(Species == 'setosa')
+
+subset3(iris, sub & col > 5.5, col:Petal.Length)
+```
+
+Notice that we used `expand` with the base NSE function `subset`.  Because
+`expand` just generates language objects, you can use it with any NSE function.
+
+The forwarding is robust to unusual evaluation:
+
+```{r}
+col.a <- quote(I_dont_exist)
+col.b <- quote(Sepal.Length)
+sub.a <- quote(stop("all hell broke loose"))
+sub.b <- quote(stop("all hell broke loose"))
+threshold <- 3.35
+
+local({
+  col.a <- quote(Sepal.Width)
+  sub.a <- quote(Species == 'virginica')
+  subs <- list(sub.a, quote(Species == 'versicolor'))
+
+  lapply(
+    subs,
+    function(x) subset3(iris, x & col.a > threshold, col.b:Petal.Length)
+  )
+})
+```
