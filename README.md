@@ -84,9 +84,12 @@ identical to normal NSE functions, with programmability as a bonus.
 
 ## Installation
 
+This package is currently only available on Github, although we intend to
+release it to CRAN shortly.
+
 
 ```r
-install.packages('oshka')
+devtools::instal_github('brodieg/oshka')
 ```
 
 This package is proof-of-concept.  Feedback is welcome, particularly if you are
