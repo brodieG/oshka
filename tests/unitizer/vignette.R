@@ -1,4 +1,4 @@
-library(matrioshka)
+library(oshka)
 
 # these tests are from the nse-fun vignette
 
