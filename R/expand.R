@@ -32,7 +32,8 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
     } else if (is.language(lang)) {
       lang.el.seq <- seq_along(lang)
       # special function symbol if in call
-      loop.over <- if(is.expression(lang)) lang.el.seq else tail(lang.el.seq, -1L)
+      loop.over <- if(is.expression(lang))
+        lang.el.seq else tail(lang.el.seq, -1L)
       for(i in seq_along(lang)) {
         mode <- if(i == 1L && !is.expression(lang)) "function" else "any"
         lang[[i]] <- expand_int(
