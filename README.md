@@ -84,14 +84,14 @@ identical to normal NSE functions, with programmability as a bonus.
 
 ## Installation
 
-This package is proof-of-concept and currently only available on Github,
-although we intend to release it to CRAN shortly.  If it elicits enough interest
-we will re-write the internals in C and add helper functions for common use
-patterns.
+This package is proof-of-concept.  If it elicits enough interest we will
+re-write the internals in C and add helper functions for common use patterns.
 
 
 ```r
-devtools::instal_github('brodieg/oshka')
+install.packages('oshka')
+# or development version
+devtools::instal_github('brodieg/oshka@development')
 ```
 
 Feedback is welcome, particularly if you are aware of some NSE pitfalls we may
