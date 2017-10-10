@@ -1,6 +1,10 @@
 # `oshka` Release Notes
 
-## v0.2.0
+## v0.1.1
+
+Initial CRAN release.
+
+## v0.1.0
 
 * [#1](https://github.com/brodieG/oshka/issues/1): Provide mechanism for
   shielding some elements from expansion.
