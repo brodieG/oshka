@@ -2,7 +2,7 @@
 
 
 
-# oshka - Simple Programmable NSE
+# oshka - Recursive Quoted Language Expansion
 
 [![](https://travis-ci.org/brodieG/oshka.svg?branch=master)](https://travis-ci.org/brodieG/oshka)
 [![](https://codecov.io/github/brodieG/oshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/oshka?branch=master)
