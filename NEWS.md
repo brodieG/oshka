@@ -1,8 +1,11 @@
 # `oshka` Release Notes
 
-## v0.1.1
+## v0.1.1-2
 
 Initial CRAN release.
+
+* Shield both by class and by symbol name (to address `::` and `:::` issue
+  brought up by [@lionel-](https://github.com/lionel-))
 
 ## v0.1.0
 
