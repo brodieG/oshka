@@ -103,6 +103,8 @@ be ignoring.
 * CRAN maintainers, for patiently shepherding packages onto CRAN and maintaining
   the repository, and Uwe Ligges in particular for maintaining
   [Winbuilder](http://win-builder.r-project.org/).
+* [Lionel Henry](https://github.com/lionel-) for his early feedback on this
+  project.
 * [Jim Hester](https://github.com/jimhester) because
   [covr](https://cran.r-project.org/package=covr) rocks.
 * [Dirk Eddelbuettel](https://github.com/eddelbuettel) and [Carl
