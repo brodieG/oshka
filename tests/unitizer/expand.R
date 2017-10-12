@@ -61,16 +61,16 @@ unitizer_sect("function", {
   })
   expand(quote(x(z)))
 })
-unitizer_sect("shield", {
+unitizer_sect("class shield", {
   a4 <- quote(1 + 1)
   b4 <- quote(2 + 1)
 
   expand(a4 ~ b4)
-  expand(a4 ~ b4, shield="AsIs")     # formulas not shielded
-  expand(a4 ~ b4, shield="formula")
-  expand(I(a4 ~ b4), shield="AsIs")
-  expand(I(a4 ~ b4), shield=c("hello", "AsIs"))
-  expand(I(a4 ~ b4), shield=c("hello", NA_character_))
+  expand(a4 ~ b4, class.shield="AsIs")     # formulas not shielded
+  expand(a4 ~ b4, class.shield="formula")
+  expand(I(a4 ~ b4), class.shield="AsIs")
+  expand(I(a4 ~ b4), class.shield=c("hello", "AsIs"))
+  expand(I(a4 ~ b4), class.shield=c("hello", NA_character_))
 
   expand(bquote(a4 & .(I(quote((b4))))))
   expand(bquote(a4 & .(I(quote(a4 & b4)))))
@@ -90,12 +90,27 @@ unitizer_sect("shield", {
   expand(cce)
 
   expand(aaa ~ bbb)
-  expand(aaa ~ bbb, shield=FALSE)
+  expand(aaa ~ bbb, class.shield=FALSE)
 
   ## errors
 
-  expand(aaa ~ bbb, shield=1:3)
-  expand(aaa ~ bbb, shield=NA)
+  expand(aaa ~ bbb, class.shield=1:3)
+  expand(aaa ~ bbb, class.shield=NA)
+})
+unitizer_sect("name shield", {
+
+  c5 <- quote(a4 * b4)
+
+  expand(c5, name.shield=c("b4"))
+  expand(c5, name.shield=c("b4", "a4"))
+
+  c6 <- quote(base::c5)
+  expand(c6)
+  expand(c6, name.shield=character())
+
+  c7 <- quote(base:::c5)
+  expand(c7)
+  expand(c7, name.shield=character())
 })
 
 # this next block should probably be last given we can't really `rm` the masked
