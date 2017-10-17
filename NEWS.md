@@ -1,6 +1,13 @@
 # `oshka` Release Notes
 
-## v0.2.0
+## v0.1.1-2
+
+Initial CRAN release.
+
+* Shield both by class and by symbol name (to address `::` and `:::` issue
+  brought up by [@lionel-](https://github.com/lionel-))
+
+## v0.1.0
 
 * [#1](https://github.com/brodieG/oshka/issues/1): Provide mechanism for
   shielding some elements from expansion.

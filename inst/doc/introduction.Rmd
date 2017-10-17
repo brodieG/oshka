@@ -1,5 +1,5 @@
 ---
-title: "oshka - Programmable NSE"
+title: "oshka - Recursive Quoted Language Expansion"
 author: "Brodie Gaslam"
 output:
     rmarkdown::html_vignette:

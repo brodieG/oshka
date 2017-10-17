@@ -5,7 +5,9 @@
 \title{Recursively Expand Symbols in Quoted Language}
 \usage{
 expand(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
-  is.pairlist(envir)) parent.frame() else baseenv(), shield = TRUE)
+  is.pairlist(envir)) parent.frame() else baseenv(),
+  class.shield = getOption("oshka.class.shield"),
+  name.shield = getOption("oshka.name.shield"))
 }
 \arguments{
 \item{expr}{an object to be evaluated.  See \sQuote{Details}.}
@@ -19,12 +21,17 @@ expand(expr, envir = parent.frame(), enclos = if (is.list(envir) ||
     in \code{envir}.  This can be \code{NULL} (interpreted as the base
     package environment, \code{\link{baseenv}()}) or an environment.}
 
-\item{shield}{TRUE, FALSE, or character, determines what portions of quoted
-language are shielded from expansion.  TRUE, the default, means that any
-any classed language (e.g. formula) will be left unexpanded.  If FALSE all
-language will be expanded, irrespective of class.  If character, then any
-classed objects with classes in the vector will be left unexpanded, and all
-others will be expanded.}
+\item{class.shield}{TRUE, FALSE, or character, determines what portions of
+quoted language are shielded from expansion.  TRUE, the default, means that
+any any classed language (e.g. formula) will be left unexpanded.  If FALSE
+all language will be expanded, irrespective of class.  If character, then
+any classed objects with classes in the vector will be left unexpanded, and
+all others will be expanded.}
+
+\item{name.shield}{character names of symbols that should not be expanded,
+which by default is \code{c("::", ":::")}.  If position 1 in a call (i.e. the
+function name)  is a name in this list , then the entire call is left
+unexpanded.}
 }
 \value{
 If the input is a language object, that object with all symbols
@@ -36,6 +43,9 @@ any language objects that those symbols point to.  This leads to an expanded
 language object that can be evaluated.  Language objects are objects of type
 "symbol", "language", or "expression", though only unclassed language
 is expanded by default.
+}
+\details{
+For more general documentation \code{browseVignettes('oshka')}.
 }
 \section{Programmable NSE}{
 
@@ -64,13 +74,25 @@ symbol searches in R where a symbol pointing to a non-function object will
 not mask a symbol pointing to a function object when it is used as the name
 of the function in a call.
 
-You can prevent expansion of portions of language by giving that language a
-class since the default behavior is to keep classed language unexpanded.
-This is why formulas are not expanded by default.  Be careful though that you
-do not give a symbol a class as that is bad practice and will become an R
-runtime error in the future.  See the \code{shield} parameter and examples.
+You can prevent expansion on portions of language via shielding.  Some
+language is not expanded by default (see next section).
+}
 
-See examples and \code{browseVignettes('oshka')} for more details.
+\section{Shielding}{
+
+
+There are two mechanisms for shielding language from expansion.  The first
+one is to give language a class.  This is why formulas are not expanded by
+default.  Be careful though that you do not give a symbol a class as that is
+bad practice and will become an R runtime error in the future.
+
+The second mechanism is to specify symbol names that should not be expanded.
+This is easier to specify than the class based mechanism, but it is less
+precise as it applies to all instances of that name.  By default the symbols
+"::" and ":::" are not expanded.  If a function call has a shielded symbol
+for function name the \emph{entire} call will be shielded.
+
+See the \code{class.shield} and \code{name.shield} parameters, and examples.
 }
 
 \examples{
@@ -102,13 +124,19 @@ subset2(iris, Sepal.Width > 4.3)
 iris.sub <- quote(Sepal.Width > 4.3)
 subset2(iris, iris.sub)
 
-## Shielding
+## You can shield all instances of a symbol from expansion.
+## Note we append existing name shield list.
+
+expand(ccc, name.shield=c(getOption('oshka.name.shield'), 'bbb'))
+
+## You can also shield by attaching classes to language
+## objects or portions thereof
 expand(I(ccc))  # add the `AsIs` class to `ccc` with `I`
 expand(ccc)
 
-## Notice extra set of parentheses we use around
-## `quote((bbb))` as otherwise we would attach attributes
-## to a symbol:
+## If you wish to shield a symbol with this method you
+## cannot do so directly.  Note the `quote((bbb))` as 
+## otherwise we would attach attributes to a symbol:
 ccd <- bquote(aaa & .(I(quote((bbb)))))
 expand(ccd)
 
@@ -118,7 +146,7 @@ cce[[3]] <- I(quote((bbb)))
 expand(cce)
 
 ## Formulas not expanded by default, but can be forced
-## to expand by setting `shield` to FALSE
+## to expand by setting `class.shield` to FALSE
 expand(aaa ~ bbb)
-expand(aaa ~ bbb, shield=FALSE)
+expand(aaa ~ bbb, class.shield=FALSE)
 }

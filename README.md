@@ -2,7 +2,7 @@
 
 
 
-# oshka - Simple Programmable NSE
+# oshka - Recursive Quoted Language Expansion
 
 [![](https://travis-ci.org/brodieG/oshka.svg?branch=master)](https://travis-ci.org/brodieG/oshka)
 [![](https://codecov.io/github/brodieG/oshka/coverage.svg?branch=master)](https://codecov.io/github/brodieG/oshka?branch=master)
@@ -84,14 +84,14 @@ identical to normal NSE functions, with programmability as a bonus.
 
 ## Installation
 
-This package is proof-of-concept and currently only available on Github,
-although we intend to release it to CRAN shortly.  If it elicits enough interest
-we will re-write the internals in C and add helper functions for common use
-patterns.
+This package is proof-of-concept.  If it elicits enough interest we will
+re-write the internals in C and add helper functions for common use patterns.
 
 
 ```r
-devtools::instal_github('brodieg/oshka')
+install.packages('oshka')
+# or development version
+devtools::instal_github('brodieg/oshka@development')
 ```
 
 Feedback is welcome, particularly if you are aware of some NSE pitfalls we may
@@ -103,6 +103,8 @@ be ignoring.
 * CRAN maintainers, for patiently shepherding packages onto CRAN and maintaining
   the repository, and Uwe Ligges in particular for maintaining
   [Winbuilder](http://win-builder.r-project.org/).
+* [Lionel Henry](https://github.com/lionel-) for his early feedback on this
+  project.
 * [Jim Hester](https://github.com/jimhester) because
   [covr](https://cran.r-project.org/package=covr) rocks.
 * [Dirk Eddelbuettel](https://github.com/eddelbuettel) and [Carl

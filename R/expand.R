@@ -4,41 +4,48 @@
 
 #' @importFrom utils tail
 
-expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
+expand_int <- function(
+  lang, envir, symbols=NULL, mode, class.shield, name.shield
+) {
   if(
     !is.object(lang) ||
-    (is.logical(shield) && !shield) ||
-    (is.character(shield) && !any(class(lang) %in% shield))
+    (is.logical(class.shield) && !class.shield) ||
+    (is.character(class.shield) && !any(class(lang) %in% class.shield))
   ) {
     if(is.symbol(lang)) {
       symb.as.chr <- as.character(lang)
-      if(symb.as.chr %in% symbols)
-        stop(
-          "Potential infinite recursion detected substituting symbol `",
-          symb.as.chr, "`"
-        )
+      if(!symb.as.chr %in% name.shield) {
+        if(symb.as.chr %in% symbols)
+          stop(
+            "Potential infinite recursion detected substituting symbol `",
+            symb.as.chr, "`"
+          )
 
-      lang.sub <- get_with_env(symb.as.chr, envir=envir, mode=mode)
+        lang.sub <- get_with_env(symb.as.chr, envir=envir, mode=mode)
 
-      if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
-        # track all symbols detected at this env level so we can detect an
-        # infinite recursion
-        symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
-        lang <- expand_int(
-          lang.sub$obj, envir=lang.sub$envir, symbols=symbols, mode="any",
-          shield=shield
-        )
-      }
+        if(!is.null(lang.sub) && is.language(lang.sub$obj)) {
+          # track all symbols detected at this env level so we can detect an
+          # infinite recursion
+          symbols <- if(identical(envir, lang.sub$envir)) c(symbols, symb.as.chr)
+          lang <- expand_int(
+            lang.sub$obj, envir=lang.sub$envir, symbols=symbols, mode="any",
+            class.shield=class.shield, name.shield=name.shield
+          )
+      } }
     } else if (is.language(lang)) {
-      lang.el.seq <- seq_along(lang)
-      # special function symbol if in call
-      loop.over <- if(is.expression(lang)) lang.el.seq else tail(lang.el.seq, -1L)
-      for(i in seq_along(lang)) {
-        mode <- if(i == 1L && !is.expression(lang)) "function" else "any"
-        lang[[i]] <- expand_int(
-          lang[[i]], envir=envir, symbols=symbols, mode=mode, shield=shield
-        )
-  } } }
+      # Proess only non-protected symbols in function call
+      if(
+        length(lang) &&
+        !(is.symbol(lang[[1]]) && as.character(lang[[1]]) %in% name.shield)
+      )
+        for(i in seq_along(lang)) {
+          mode <- if(i == 1L && !is.expression(lang)) "function" else "any"
+          lang[[i]] <- expand_int(
+            lang[[i]], envir=envir, symbols=symbols, mode=mode,
+            class.shield=class.shield, name.shield=name.shield
+          )
+        }
+  } }
   lang
 }
 #' Recursively Expand Symbols in Quoted Language
@@ -48,6 +55,8 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' language object that can be evaluated.  Language objects are objects of type
 #' "symbol", "language", or "expression", though only unclassed language
 #' is expanded by default.
+#'
+#' For more general documentation `browseVignettes('oshka')`.
 #'
 #' @section Programmable NSE:
 #'
@@ -73,22 +82,36 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' not mask a symbol pointing to a function object when it is used as the name
 #' of the function in a call.
 #'
-#' You can prevent expansion of portions of language by giving that language a
-#' class since the default behavior is to keep classed language unexpanded.
-#' This is why formulas are not expanded by default.  Be careful though that you
-#' do not give a symbol a class as that is bad practice and will become an R
-#' runtime error in the future.  See the `shield` parameter and examples.
+#' You can prevent expansion on portions of language via shielding.  Some
+#' language is not expanded by default (see next section).
 #'
-#' See examples and `browseVignettes('oshka')` for more details.
+#' @section Shielding:
+#'
+#' There are two mechanisms for shielding language from expansion.  The first
+#' one is to give language a class.  This is why formulas are not expanded by
+#' default.  Be careful though that you do not give a symbol a class as that is
+#' bad practice and will become an R runtime error in the future.
+#'
+#' The second mechanism is to specify symbol names that should not be expanded.
+#' This is easier to specify than the class based mechanism, but it is less
+#' precise as it applies to all instances of that name.  By default the symbols
+#' "::" and ":::" are not expanded.  If a function call has a shielded symbol
+#' for function name the *entire* call will be shielded.
+#'
+#' See the `class.shield` and `name.shield` parameters, and examples.
 #'
 #' @export
 #' @inheritParams base::eval
-#' @param shield TRUE, FALSE, or character, determines what portions of quoted
-#'   language are shielded from expansion.  TRUE, the default, means that any
-#'   any classed language (e.g. formula) will be left unexpanded.  If FALSE all
-#'   language will be expanded, irrespective of class.  If character, then any
-#'   classed objects with classes in the vector will be left unexpanded, and all
-#'   others will be expanded.
+#' @param class.shield TRUE, FALSE, or character, determines what portions of
+#'   quoted language are shielded from expansion.  TRUE, the default, means that
+#'   any any classed language (e.g. formula) will be left unexpanded.  If FALSE
+#'   all language will be expanded, irrespective of class.  If character, then
+#'   any classed objects with classes in the vector will be left unexpanded, and
+#'   all others will be expanded.
+#' @param name.shield character names of symbols that should not be expanded,
+#'   which by default is `c("::", ":::")`.  If position 1 in a call (i.e. the
+#'   function name)  is a name in this list , then the entire call is left
+#'   unexpanded.
 #' @return If the input is a language object, that object with all symbols
 #'   recursively expanded, otherwise the input unchanged.
 #' @examples
@@ -120,13 +143,18 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' iris.sub <- quote(Sepal.Width > 4.3)
 #' subset2(iris, iris.sub)
 #'
-#' ## Shielding
+#' ## You can shield all instances of a symbol from expansion.
+#' ## Note we append existing name shield list.
+#' expand(ccc, name.shield=c(getOption('oshka.name.shield'), 'bbb'))
+#'
+#' ## You can also shield by attaching classes to language
+#' ## objects or portions thereof
 #' expand(I(ccc))  # add the `AsIs` class to `ccc` with `I`
 #' expand(ccc)
 #'
-#' ## Notice extra set of parentheses we use around
-#' ## `quote((bbb))` as otherwise we would attach attributes
-#' ## to a symbol:
+#' ## If you wish to shield a symbol with this method you
+#' ## cannot do so directly.  Note the `quote((bbb))` as 
+#' ## otherwise we would attach attributes to a symbol:
 #' ccd <- bquote(aaa & .(I(quote((bbb)))))
 #' expand(ccd)
 #'
@@ -136,22 +164,28 @@ expand_int <- function(lang, envir, symbols=NULL, mode, shield) {
 #' expand(cce)
 #'
 #' ## Formulas not expanded by default, but can be forced
-#' ## to expand by setting `shield` to FALSE
+#' ## to expand by setting `class.shield` to FALSE
 #' expand(aaa ~ bbb)
-#' expand(aaa ~ bbb, shield=FALSE)
+#' expand(aaa ~ bbb, class.shield=FALSE)
 
 expand <- function(
   expr, envir=parent.frame(),
   enclos=if(is.list(envir) || is.pairlist(envir)) parent.frame() else baseenv(),
-  shield=TRUE
+  class.shield=getOption('oshka.class.shield'),
+  name.shield=getOption('oshka.name.shield')
 ) {
   if(
-    !is.character(shield) &&
-    (!is.logical(shield) || !isTRUE(shield %in% c(TRUE, FALSE)))
+    !is.character(class.shield) &&
+    (!is.logical(class.shield) || !isTRUE(class.shield %in% c(TRUE, FALSE)))
   )
-    stop("Argument `shield` must be TRUE, FALSE, or character")
+    stop("`class.shield` must be TRUE, FALSE, or character")
+
+  if(!is.character(name.shield) || anyNA(name.shield))
+    stop("`name.shield` must be character without NAs")
+
   envir.proc <- env_resolve(envir, enclos, internal=TRUE)
   expand_int(
-    expr, envir=envir.proc, symbols=character(), mode="any", shield=shield
+    expr, envir=envir.proc, symbols=character(), mode="any",
+    class.shield=class.shield, name.shield=name.shield
   )
 }
