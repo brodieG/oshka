@@ -1,0 +1,79 @@
+
+```{r, echo=FALSE}
+library(rlang)
+library(oshka)
+```
+
+First, let me start with a quick summary of my perspective on all this so it doesn't get lost in the forthcoming mountain of (what I hope you will agree is) constructive criticism. I think it's great that we have `rlang` as it does many things that cannot be done otherwise. You have clearly put a lot of time, thought, and effort into making it, and it shows. If R didn't have an existing NSE model I'd have much less feedback to provide.
+
+Also, thank you for having the patience to engage in the discussion here. I realize it can be exhausting arguing with me and I'm not sure I'd be so generous with my time if our situations were reversed.
+
+The primary reason I wrote `oshka` was to concretize what I see as sub-optimal design decisions in `rlang` with respect to its accessibility (the secondary reason was to generalize a system implemented in `vetr`). I hope it is clear that I'm not just throwing stones out of an amorphous hard-to-define resentment of the tidyverse.
+
+Some of the stuff below is a re-hash of what has been discussed in the other room, but this provide me an opportunity to lay it out in one cohesive whole instead of interspersed across various parallel and/or unrelated discussions.
+The basic foundation of my argument here is that it is much harder to learn a new concept than it is to learn an interface.
+
+So, now to the fun:
+
+> I disagree that Oshka closely follows R semantics because it conflates the notions of expressions and promises. A symbolic object evaluating to a symbolic object does not trigger recursive evaluation; a promise evaluating to a promise does trigger recursive evaluation.
+
+Maybe this becomes an argument about the semantics of semantics =)..., but why not. Obviously `oshka` introduces some changes to the `quote`/`eval` semantics, as otherwise we could do nothing different. However, it changes as little as possible otherwise. Today I'm going to address the "it changes as little as possible otherwise", and why that is important. Another day I'll deal with the specific changes in the `quote`/`eval` semantics that `oshka` introduces.
+
+So in a minimal example that allows us to reference a variable indirectly we have the `oshka` version, with comments pointing out what is non-standard:
+
+```{r}
+subset2_oshka <- function(data, rows) {
+  rows <- substitute(rows)
+  rows <- oshka::expand(rows, data, parent.frame())  # <<<NON-base>>>
+  rows_val <- eval(rows, data, parent.frame())
+  data[rows_val, , drop = FALSE]
+}
+var <- quote(hp)
+subset2_oshka(mtcars, var > 300)
+```
+
+vs: the `rlang` version (note, `!!` wasn't working for me so I used `UQ`):
+
+```{r}
+subset2_rlang <- function(data, rows) {
+  rows <- rlang::enquo(rows)                         # <<<NON-base>>>
+  rows_val <- rlang::eval_tidy(rows, data)           # <<<NON-base>>>
+  data[rows_val, , drop = FALSE]
+}
+var <- quo(hp)                                       # <<<NON-base>>>
+subset2_rlang(mtcars, UQ(var) > 300)                 # <<<NON-base>>>
+```
+
+For the purposes here both of these do the same thing: allow us to pass a variable name indirectly to an NSE function. I realize `rlang` can do a lot more, but that is not needed here.
+
+`rlang` involves four non-base commands, vs one for `oshka`. More importantly, two of those four commands are exposed to the user (as opposed to the author) of `subset2_rlang`, including the completely new concept of `UQ`.
+
+To use an oshka-enabled R fun, you just need to know what quote does, and that is an existing idiom.
+
+To use an rlang-enabled R fun, you need to know to know what quo does. You probably also need to know a bit about environments and why they matter, and maybe even formulas. This is because as part of using quo at some point you will probably just type quo(hp) at the prompt and see:
+
+```{r}
+quo(hp)
+```
+
+For someone familiar with environments and formulas the above is not too intimidating. This is an example off a good job riffing off of the existing print semantics for environments. But for someone who doesn't know about those now they are faced with the fact that they are using something they really don't understand.
+
+The semantic leap of `quo(hp)` is bigger than that of `quote(hp)`. I agree completely that you need that semantic leap to solve all the problems that `rlang` sets out to solve, and this is why I think it is a good thing that you built `rlang`. But it is not needed in this case.
+
+After we get past the quo, then we have `UQ`. In its simpler form (`UQ` instead of `!!`) it is a new concept that has no existing analogue. The existing semantics of the `quote`/`eval` idiom are that you quote an expression, maybe modify it, and then you evaluate it, maybe with a different enclosure stack. So by requiring the `UQ` we introduce a new concept, and we introduce it to the person least prepared to understand it, the user (as opposed to the author) of `subset2_rlang`.
+
+IMO it gets worse with `!!` instead of ``UQ``. I understand why you want to use it: `UQ()` implies a function application when in reality no such thing happens internally, and it is reasonable to want to convey that. But to do that we also introduce:
+
+* Non standard parsing
+* An arbitrary symbol that at best has no inherent meaning, and at worst conflicts with the existing double negation semantics
+* A function (`!`) masquerading as a parsing mark; after all, operators ARE functions in R
+
+That strikes me as an enormous amount of change for something that is a subtle distinction that very few people are going to get anyway. Additionally it seems the distinction is a matter of implementation. Is it not be possible to implement `UQ` as an actual function that on evaluation flips the "auto-evaluate" bit on the quosure? If so, and I don't see why it can't be, then I really can't think of a reason to use !! over `UQ`.
+
+Learning new concepts is hard. It is especially hard when they are far and different from known concepts. And the concepts we are discussing here are not concepts that can be captured in a symbol, name, sentence, or even single line of code. I would say 90% of the work is fundamentally understanding the concept, and 10% is associating with a symbol or syntax.
+
+The point of `oshka` is that it introduces limited new functionality (programmable NSE) with the fewest new concepts possible (at least that I could figure out) because the cost of new concepts is very high.
+
+Ultimately, part of the reason we may have such different opinions is that for you guys the 90% concept 10% interface cost of learning is split differently, like 40% / 60%. So I may find it trivial to learn new interfaces, but harder to learn new concepts, and vice versa for you. Depending on where your balance lies either argument becomes reasonable.
+
+Yes, it would be nice if the interface to the concepts was consistent and R is bad at doing that, but there is really only so much you can do with a self consistent interface. It is not possible to adequately convey the semantics of a command from the command name alone. You can get some idea, but that is rarely sufficient. At the end of the day, we still have to learn the concepts and that is much harder than learning or remembering the interface.
