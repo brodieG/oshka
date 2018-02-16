@@ -35,7 +35,6 @@ The forwarding is robust to unusual evaluation:
 col.a <- quote(I_dont_exist)
 col.b <- quote(Sepal.Length)
 sub.a <- quote(stop("all hell broke loose"))
-sub.b <- quote(stop("all hell broke loose"))
 threshold <- 3.35
 
 local({

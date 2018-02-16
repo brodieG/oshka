@@ -13,7 +13,7 @@
 <meta name="author" content="Brodie Gaslam" />
 
 
-<title>oshka - Programmable NSE</title>
+<title>oshka - Recursive Quoted Language Expansion</title>
 
 
 
@@ -67,7 +67,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 
 
-<h1 class="title toc-ignore">oshka - Programmable NSE</h1>
+<h1 class="title toc-ignore">oshka - Recursive Quoted Language Expansion</h1>
 <h4 class="author"><em>Brodie Gaslam</em></h4>
 
 
@@ -136,7 +136,6 @@ sub &lt;-<span class="st"> </span><span class="kw">quote</span>(Species ==<span 
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">col.a &lt;-<span class="st"> </span><span class="kw">quote</span>(I_dont_exist)
 col.b &lt;-<span class="st"> </span><span class="kw">quote</span>(Sepal.Length)
 sub.a &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">stop</span>(<span class="st">&quot;all hell broke loose&quot;</span>))
-sub.b &lt;-<span class="st"> </span><span class="kw">quote</span>(<span class="kw">stop</span>(<span class="st">&quot;all hell broke loose&quot;</span>))
 threshold &lt;-<span class="st"> </span><span class="fl">3.35</span>
 
 <span class="kw">local</span>({

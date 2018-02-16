@@ -1,0 +1,14 @@
+#' Recursive Quoted Language Expansion
+#'
+#' Expands quoted language by recursively replacing any symbol that points to
+#' quoted language with the language it points to.  The recursive process
+#' continues until only symbols that point to non-language objects remain.  The
+#' resulting quoted language can then be evaluated normally.  This differs from
+#' the traditional 'quote'/'eval' pattern because it resolves intermediate
+#' language objects that would interfere with evaluation.
+
+#' @docType package
+#' @name oshka-package
+
+NULL
+
